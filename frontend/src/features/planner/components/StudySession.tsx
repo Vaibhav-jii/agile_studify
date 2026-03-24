@@ -10,6 +10,7 @@ export interface StudySession {
   startTime: string;
   color: string;
   type: string;
+  day: string;
 }
 
 interface StudySessionCardProps {
@@ -98,7 +99,7 @@ export function WeeklyGrid({ sessions, onSessionClick }: {
   onSessionClick?: (session: StudySession) => void;
 }) {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const hours = Array.from({ length: 14 }, (_, i) => i + 8); // 8 AM to 10 PM
+  const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6 AM to 11 PM
 
   return (
     <div className="overflow-x-auto">
@@ -120,7 +121,7 @@ export function WeeklyGrid({ sessions, onSessionClick }: {
               </div>
               {days.map(day => {
                 const daySession = sessions.find(s => 
-                  s.startTime.startsWith(`${hour}:`)
+                  s.day === day && s.startTime.startsWith(`${hour.toString().padStart(2, '0')}:`)
                 );
                 
                 return (

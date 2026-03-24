@@ -1,0 +1,5 @@
+# Backend data (database, uploaded files)
+data/
+__pycache__/
+*.pyc
+.env

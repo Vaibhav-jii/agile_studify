@@ -6,6 +6,7 @@ import { DashboardView } from '../features/dashboard/DashboardView';
 import { LibraryView } from '../features/library/LibraryView';
 import { AnalyzeView } from '../features/analyze/AnalyzeView';
 import { PlannerView } from '../features/planner/PlannerView';
+import { QuizView } from '../features/quiz/QuizView';
 import { CalendarView } from '../features/planner/CalendarView';
 import { SettingsView } from '../features/settings/SettingsView';
 import { Sidebar, MobileNav } from '../components/layout/Sidebar';
@@ -17,7 +18,7 @@ export default function App() {
   const [appMode, setAppMode] = useState<'dark' | 'light'>('light'); // Light = proper routing structure
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  
+
   // Light theme states (Sprint 1 features accessible here)
   const [isSignedIn, setIsSignedIn] = useState(false); // Start with login
   const [activeView, setActiveView] = useState<string>('library'); // Start at library to see Sprint 1 features
@@ -70,7 +71,7 @@ export default function App() {
 
   // Use the light mode structure (proper routing) but with dark theme styling
   // This gives us access to Sprint 1 features with dark UI
-  
+
   // Show landing page with sign in
   if (!isSignedIn) {
     return <LandingView onGetStarted={handleGetStarted} />;
@@ -91,6 +92,7 @@ export default function App() {
             )}
             {activeView === 'analyze' && <AnalyzeView />}
             {activeView === 'planner' && <PlannerView />}
+            {activeView === 'quiz' && <QuizView />}
             {activeView === 'calendar' && <CalendarView />}
             {activeView === 'settings' && <SettingsView />}
           </div>

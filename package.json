@@ -1,0 +1,9 @@
+{
+    "name": "studify",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "bash dev.sh",
+        "install:all": "cd frontend && npm install && cd ../backend && pip3 install -r requirements.txt"
+    }
+}

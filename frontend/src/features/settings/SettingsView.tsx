@@ -7,8 +7,8 @@ import { Badge } from '../../components/data-display/Badge';
 
 export function SettingsView() {
   const [settings, setSettings] = useState({
-    name: 'Alex Johnson',
-    email: 'alex.johnson@university.edu',
+    name: 'Vaibhav Bansal',
+    email: 'bansalvaibhav@gmail.com',
     studyStyle: 'pomodoro',
     sessionDuration: '25',
     breakDuration: '5',
@@ -148,7 +148,7 @@ export function SettingsView() {
 
         <div className="space-y-4">
           {Object.entries(settings.notifications).map(([key, value]) => (
-            <label 
+            <label
               key={key}
               className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
             >

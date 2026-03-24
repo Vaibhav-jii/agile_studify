@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Library, Calendar, BarChart3, Settings, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Library, Calendar, BarChart3, Settings, BookOpen, Brain } from 'lucide-react';
 
 interface SidebarProps {
   activeView: string;
@@ -10,6 +10,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'library', label: 'Library', icon: Library },
   { id: 'planner', label: 'Planner', icon: BookOpen },
+  { id: 'quiz', label: 'Quiz', icon: Brain },
   { id: 'analyze', label: 'Analyze', icon: BarChart3 },
   { id: 'calendar', label: 'Calendar', icon: Calendar },
   { id: 'settings', label: 'Settings', icon: Settings }
@@ -27,7 +28,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
-          
+
           return (
             <button
               key={item.id}
@@ -35,8 +36,8 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
               className={`
                 w-full flex items-center gap-3 px-4 py-3 rounded-[var(--radius-md)]
                 transition-all duration-300 font-medium
-                ${isActive 
-                  ? 'glass-card text-[var(--color-text-primary)] shadow-[0_8px_20px_rgba(155,124,255,0.15)]' 
+                ${isActive
+                  ? 'glass-card text-[var(--color-text-primary)] shadow-[0_8px_20px_rgba(155,124,255,0.15)]'
                   : 'text-[var(--color-text-muted)] hover:bg-white/10 hover:text-[var(--color-text-primary)]'
                 }
               `}
@@ -59,7 +60,7 @@ export function MobileNav({ activeView, onViewChange }: SidebarProps) {
         {navItems.slice(0, 5).map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
-          
+
           return (
             <button
               key={item.id}
@@ -67,8 +68,8 @@ export function MobileNav({ activeView, onViewChange }: SidebarProps) {
               className={`
                 flex flex-col items-center gap-1 px-3 py-2 rounded-lg min-w-[60px]
                 transition-all duration-300
-                ${isActive 
-                  ? 'text-[var(--color-primary-violet)]' 
+                ${isActive
+                  ? 'text-[var(--color-primary-violet)]'
                   : 'text-[var(--color-text-muted)]'
                 }
               `}

@@ -1,29 +1,33 @@
 /**
  * Subject Management Component
- * Sprint 1: CRUD operations for subjects
+ * Uses backend API for CRUD operations on subjects
  */
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, BookOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, BookOpen, Clock, FileText } from 'lucide-react';
 import { Button } from '../../components/form-controls/Button';
 import { Input } from '../../components/form-controls/Input';
 import { Card } from '../../components/data-display/Card';
 import { Modal } from '../../components/layout/Modal';
 import { Toast, useToast } from '../../components/feedback/Toast';
 import {
-  getAllSubjects,
+  fetchSubjects,
   createSubject,
   updateSubject,
   deleteSubject,
-  SUBJECT_COLORS,
-} from '../../services/subjectService';
-import { Subject, CreateSubjectDTO } from '../../types';
+  type SubjectResponse,
+} from '../../services/api';
+
+const SUBJECT_COLORS = [
+  '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
+  '#3B82F6', '#F97316', '#06B6D4', '#EF4444',
+];
 
 export function SubjectManagement() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
-  const [formData, setFormData] = useState<CreateSubjectDTO>({
+  const [editingSubject, setEditingSubject] = useState<SubjectResponse | null>(null);
+  const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: SUBJECT_COLORS[0],
@@ -34,12 +38,16 @@ export function SubjectManagement() {
     loadSubjects();
   }, []);
 
-  const loadSubjects = () => {
-    const loadedSubjects = getAllSubjects();
-    setSubjects(loadedSubjects);
+  const loadSubjects = async () => {
+    try {
+      const data = await fetchSubjects();
+      setSubjects(data);
+    } catch (error) {
+      showToast('Failed to load subjects', 'error');
+    }
   };
 
-  const handleOpenModal = (subject?: Subject) => {
+  const handleOpenModal = (subject?: SubjectResponse) => {
     if (subject) {
       setEditingSubject(subject);
       setFormData({
@@ -61,16 +69,12 @@ export function SubjectManagement() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingSubject(null);
-    setFormData({
-      name: '',
-      description: '',
-      color: SUBJECT_COLORS[0],
-    });
+    setFormData({ name: '', description: '', color: SUBJECT_COLORS[0] });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim()) {
       showToast('Subject name is required', 'error');
       return;
@@ -78,30 +82,38 @@ export function SubjectManagement() {
 
     try {
       if (editingSubject) {
-        updateSubject(editingSubject.id, formData);
+        await updateSubject(editingSubject.id, formData);
         showToast('Subject updated successfully', 'success');
       } else {
-        createSubject(formData);
+        await createSubject(formData);
         showToast('Subject created successfully', 'success');
       }
-      
-      loadSubjects();
+
+      await loadSubjects();
       handleCloseModal();
     } catch (error) {
       showToast('Failed to save subject', 'error');
     }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      const success = deleteSubject(id);
-      if (success) {
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete "${name}"? This will also delete all its files.`)) {
+      try {
+        await deleteSubject(id);
         showToast('Subject deleted successfully', 'success');
-        loadSubjects();
-      } else {
+        await loadSubjects();
+      } catch (error) {
         showToast('Failed to delete subject', 'error');
       }
     }
+  };
+
+  const formatMinutes = (minutes: number): string => {
+    if (minutes === 0) return '0m';
+    if (minutes < 60) return `${Math.round(minutes)}m`;
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
   return (
@@ -136,7 +148,7 @@ export function SubjectManagement() {
                 className="h-2 rounded-t-[var(--radius-md)] -mx-4 -mt-4 mb-4"
                 style={{ backgroundColor: subject.color }}
               />
-              
+
               {/* Content */}
               <div className="flex items-start gap-3 flex-1">
                 <div
@@ -145,7 +157,7 @@ export function SubjectManagement() {
                 >
                   <BookOpen size={24} style={{ color: subject.color }} />
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-[var(--color-text-primary)] mb-1 truncate">
                     {subject.name}
@@ -156,6 +168,20 @@ export function SubjectManagement() {
                     </p>
                   )}
                 </div>
+              </div>
+
+              {/* Stats */}
+              <div className="flex gap-4 mt-3 text-xs text-[var(--color-text-muted)]">
+                <span className="flex items-center gap-1">
+                  <FileText size={12} />
+                  {subject.file_count} file{subject.file_count !== 1 ? 's' : ''}
+                </span>
+                {subject.total_study_time > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} />
+                    {formatMinutes(subject.total_study_time)} study
+                  </span>
+                )}
               </div>
 
               {/* Actions */}
@@ -248,11 +274,10 @@ export function SubjectManagement() {
                   key={color}
                   type="button"
                   onClick={() => setFormData({ ...formData, color })}
-                  className={`w-10 h-10 rounded-lg transition-all ${
-                    formData.color === color
+                  className={`w-10 h-10 rounded-lg transition-all ${formData.color === color
                       ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0F0420] scale-110'
                       : 'hover:scale-105'
-                  }`}
+                    }`}
                   style={{ backgroundColor: color }}
                   aria-label={`Select color ${color}`}
                 />

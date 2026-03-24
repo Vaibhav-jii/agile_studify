@@ -5,13 +5,15 @@ interface BadgeProps {
   variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
   size?: 'sm' | 'md';
   className?: string;
+  onClick?: () => void;
 }
 
 export function Badge({ 
   children, 
   variant = 'default', 
   size = 'md',
-  className = '' 
+  className = '',
+  onClick,
 }: BadgeProps) {
   const variants = {
     default: 'bg-white/20 text-[var(--color-text-primary)] border-white/30',
@@ -26,14 +28,21 @@ export function Badge({
     md: 'px-3 py-1.5 text-sm'
   };
 
+  const Tag = onClick ? 'button' : 'span';
+
   return (
-    <span className={`
-      inline-flex items-center justify-center
-      backdrop-blur-md border rounded-full font-medium
-      ${variants[variant]} ${sizes[size]} ${className}
-    `}>
+    <Tag
+      className={`
+        inline-flex items-center justify-center
+        backdrop-blur-md border rounded-full font-medium
+        ${onClick ? 'cursor-pointer hover:scale-105 active:scale-95 transition-all duration-200' : ''}
+        ${variants[variant]} ${sizes[size]} ${className}
+      `}
+      onClick={onClick}
+      type={onClick ? 'button' : undefined}
+    >
       {children}
-    </span>
+    </Tag>
   );
 }
 
