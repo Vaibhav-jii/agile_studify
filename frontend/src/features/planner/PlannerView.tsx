@@ -81,6 +81,7 @@ export function PlannerView() {
         color: s.subject_color,
         type: s.session_type,
         day: s.day,
+        date: s.date,
       }));
 
       setStudySessions(sessions);

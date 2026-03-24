@@ -175,6 +175,7 @@ def generate_timetable(
                     "duration": int(session_dur),
                     "start_time": f"{start_hour:02d}:{start_min:02d}",
                     "day": day_name,
+                    "date": current_date.strftime("%Y-%m-%d"),
                     "session_type": get_session_type(int(session_dur)),
                 }
                 sessions.append(session)

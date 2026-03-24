@@ -98,7 +98,8 @@ class StudySessionResponse(BaseModel):
     title: str
     duration: int  # minutes
     start_time: str
-    day: str  # e.g. "Monday", "2024-01-15"
+    day: str  # e.g. "Monday"
+    date: str # e.g. "2024-03-24"
     session_type: str  # "Deep focus", "Review", "Quick recap"
 
 

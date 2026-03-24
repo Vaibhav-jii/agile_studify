@@ -12,6 +12,7 @@ interface CalendarSession {
   duration: number;
   startTime: string;
   day: string;
+  date?: string; // e.g. "2024-03-24"
   type: string;
 }
 
@@ -60,14 +61,23 @@ export function CalendarView() {
     }
   };
 
-  // Get sessions for a specific day name
-  const getSessionsForDay = (dayName: string) =>
-    sessions.filter(s => s.day === dayName);
+  // Helper to get YYYY-MM-DD
+  const formatDateString = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Get sessions for a specific date
+  const getSessionsForDate = (dateObj: Date) => {
+    const dateStr = formatDateString(dateObj);
+    return sessions.filter(s => s.date === dateStr);
+  };
 
   // Today info
   const today = new Date();
-  const todayDayName = dayNames[today.getDay()];
-  const todaySessions = getSessionsForDay(todayDayName);
+  const todaySessions = getSessionsForDate(today);
 
   // Month view helpers
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -95,7 +105,11 @@ export function CalendarView() {
     let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Studify//EN\n';
     sessions.forEach(s => {
       const hourMin = s.startTime.split(':');
-      ics += `BEGIN:VEVENT\nSUMMARY:${s.title}\nDESCRIPTION:${s.subject} - ${s.type} (${s.duration}min)\nDTSTART:20260101T${hourMin[0]}${hourMin[1]}00\nDURATION:PT${s.duration}M\nEND:VEVENT\n`;
+      let datePrefix = "20260101";
+      if (s.date) {
+        datePrefix = s.date.replace(/-/g, '');
+      }
+      ics += `BEGIN:VEVENT\nSUMMARY:${s.title}\nDESCRIPTION:${s.subject} - ${s.type} (${s.duration}min)\nDTSTART:${datePrefix}T${hourMin[0]}${hourMin[1]}00\nDURATION:PT${s.duration}M\nEND:VEVENT\n`;
     });
     ics += 'END:VCALENDAR';
     const blob = new Blob([ics], { type: 'text/calendar' });
@@ -186,8 +200,7 @@ export function CalendarView() {
 
             {calDays.map(day => {
               const cellDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-              const cellDayName = dayNames[cellDate.getDay()];
-              const daySessions = getSessionsForDay(cellDayName);
+              const daySessions = getSessionsForDate(cellDate);
 
               const isToday = day === today.getDate() &&
                 currentDate.getMonth() === today.getMonth() &&
@@ -240,7 +253,7 @@ export function CalendarView() {
           <div className="overflow-x-auto">
             <div className="min-w-[800px]">
               {/* Header row */}
-              <div className="grid grid-cols-8 gap-2 mb-2">
+              <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))' }}>
                 <div className="text-sm font-medium text-[var(--color-text-muted)]">Time</div>
                 {weekDays.map((wd, i) => {
                   const isWdToday = wd.toDateString() === today.toDateString();
@@ -258,28 +271,29 @@ export function CalendarView() {
               </div>
 
               {/* Time grid */}
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 {weekHours.map(hour => (
-                  <div key={hour} className="grid grid-cols-8 gap-2">
+                  <div key={hour} className="grid gap-2" style={{ gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))' }}>
                     <div className="text-xs text-[var(--color-text-muted)] py-2">
                       {hour}:00
                     </div>
                     {weekDays.map((wd, di) => {
-                      const wdName = dayNames[wd.getDay()];
+                      const wdDateStr = formatDateString(wd);
                       const hourStr = hour.toString().padStart(2, '0');
                       const cellSession = sessions.find(
-                        s => s.day === wdName && s.startTime.startsWith(`${hourStr}:`)
+                        s => s.date === wdDateStr && s.startTime.startsWith(`${hourStr}:`)
                       );
 
                       return (
                         <div
                           key={`${di}-${hour}`}
-                          className="min-h-[48px] rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                          className="h-[48px] rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors relative"
                         >
                           {cellSession && (
                             <div
-                              className="h-full p-2 rounded-lg"
+                              className="absolute top-0 left-0 w-full p-2 rounded-lg z-10 shadow-md backdrop-blur-sm"
                               style={{
+                                height: `${Math.max(30, (cellSession.duration / 60) * 48)}px`, // Proportional to 48px/hour
                                 backgroundColor: `${cellSession.color}30`,
                                 borderLeft: `3px solid ${cellSession.color}`,
                               }}

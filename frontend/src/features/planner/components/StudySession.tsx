@@ -11,6 +11,7 @@ export interface StudySession {
   color: string;
   type: string;
   day: string;
+  date: string;
 }
 
 interface StudySessionCardProps {
@@ -68,19 +69,22 @@ export function TimelineView({ sessions, onSessionClick }: {
   onSessionClick?: (session: StudySession) => void;
 }) {
   const groupedByDay = sessions.reduce((acc, session) => {
-    const day = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const day = session.date || session.day;
     if (!acc[day]) acc[day] = [];
     acc[day].push(session);
     return acc;
   }, {} as Record<string, StudySession[]>);
 
+  // Sort dates if they are in YYYY-MM-DD format
+  const sortedDays = Object.keys(groupedByDay).sort();
+
   return (
     <div className="space-y-6">
-      {Object.entries(groupedByDay).map(([day, daySessions]) => (
+      {sortedDays.map(day => (
         <div key={day}>
           <h3 className="font-semibold text-[var(--color-text-primary)] mb-3">{day}</h3>
           <div className="space-y-3">
-            {daySessions.map(session => (
+            {groupedByDay[day].map((session: StudySession) => (
               <StudySessionCard
                 key={session.id}
                 session={session}
@@ -98,47 +102,64 @@ export function WeeklyGrid({ sessions, onSessionClick }: {
   sessions: StudySession[];
   onSessionClick?: (session: StudySession) => void;
 }) {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const uniqueDates = Array.from(new Set(sessions.map(s => s.date || s.day))).sort();
+  const displayDates = uniqueDates.length > 0 ? uniqueDates : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
   const hours = Array.from({ length: 18 }, (_, i) => i + 6); // 6 AM to 11 PM
 
+  const getHeaderLabel = (dateStr: string) => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const d = new Date(dateStr);
+      const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return `${shortDays[d.getDay()]} ${d.getDate()}`;
+    }
+    return dateStr.slice(0, 3);
+  };
+
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[800px]">
-        <div className="grid grid-cols-8 gap-2 mb-2">
+    <div className="overflow-x-auto pb-12">
+      <div className="min-w-[800px]" style={{ width: Math.max(800, 100 + displayDates.length * 100) + 'px' }}>
+        <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: `80px repeat(${displayDates.length}, minmax(0, 1fr))` }}>
           <div className="text-sm font-medium text-[var(--color-text-muted)]">Time</div>
-          {days.map(day => (
-            <div key={day} className="text-sm font-medium text-[var(--color-text-primary)] text-center">
-              {day.slice(0, 3)}
+          {displayDates.map(dateStr => (
+            <div key={dateStr} className="text-sm font-medium text-[var(--color-text-primary)] text-center">
+              {getHeaderLabel(dateStr)}
             </div>
           ))}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1 relative">
           {hours.map(hour => (
-            <div key={hour} className="grid grid-cols-8 gap-2">
+            <div key={hour} className="grid gap-2" style={{ gridTemplateColumns: `80px repeat(${displayDates.length}, minmax(0, 1fr))` }}>
               <div className="text-xs text-[var(--color-text-muted)] py-2">
                 {hour}:00
               </div>
-              {days.map(day => {
+              {displayDates.map(dateStr => {
+                const hourStr = hour.toString().padStart(2, '0');
                 const daySession = sessions.find(s => 
-                  s.day === day && s.startTime.startsWith(`${hour.toString().padStart(2, '0')}:`)
+                  (s.date === dateStr || (!s.date && s.day === dateStr)) && 
+                  s.startTime.startsWith(`${hourStr}:`)
                 );
                 
                 return (
                   <div 
-                    key={`${day}-${hour}`}
-                    className="min-h-[60px] rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                    key={`${dateStr}-${hour}`}
+                    className="h-[60px] rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors relative"
                   >
                     {daySession && (
                       <div
-                        className="h-full p-2 rounded-lg cursor-pointer transition-all hover:scale-[1.02]"
-                        style={{ backgroundColor: `${daySession.color}40`, borderLeft: `3px solid ${daySession.color}` }}
+                        className="absolute top-0 left-0 w-full p-2 rounded-lg cursor-pointer transition-all hover:scale-[1.02] z-10 shadow-md backdrop-blur-sm"
+                        style={{ 
+                          height: `${Math.max(30, (daySession.duration / 60) * 64)}px`, 
+                          backgroundColor: `${daySession.color}cc`, 
+                          borderLeft: `4px solid ${daySession.color}` 
+                        }}
                         onClick={() => onSessionClick?.(daySession)}
                       >
-                        <p className="text-xs font-medium text-[var(--color-text-primary)] truncate">
+                        <p className="text-xs font-semibold text-white truncate drop-shadow-md">
                           {daySession.subject}
                         </p>
-                        <p className="text-xs text-[var(--color-text-muted)] truncate">
+                        <p className="text-[10px] text-white/90 truncate drop-shadow-md">
                           {daySession.duration}m
                         </p>
                       </div>

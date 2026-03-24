@@ -184,6 +184,7 @@ export interface StudySessionResponse {
     duration: number;
     start_time: string;
     day: string;
+    date: string;
     session_type: string;
 }
 
