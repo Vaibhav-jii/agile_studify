@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, BookOpen, TrendingUp, Bell, FileText, Sparkles, Brain } from 'lucide-react';
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from 'recharts';
 import { StatsCard, Card } from '../../components/data-display/Card';
 import { Badge } from '../../components/data-display/Badge';
 import { Button } from '../../components/form-controls/Button';
@@ -87,6 +91,63 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           icon={<BookOpen size={20} />}
         />
       </div>
+
+      {/* Visual Charts */}
+      {stats && stats.subjects.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '150ms' }}>
+          <Card>
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">Study Time Distribution (Minutes)</h3>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats.subjects}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }: any) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="total_study_minutes"
+                  >
+                    {stats.subjects.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-card)', color: 'var(--color-text-primary)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">Files per Subject</h3>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.subjects}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fill: 'var(--color-text-muted)' }}
+                  />
+                  <YAxis tick={{ fill: 'var(--color-text-muted)' }} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-card)', color: 'var(--color-text-primary)' }}
+                  />
+                  <Bar dataKey="file_count">
+                    {stats.subjects.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}

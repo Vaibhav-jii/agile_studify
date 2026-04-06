@@ -14,6 +14,7 @@ from database import get_db
 from models.db_models import UploadedFile as UploadedFileModel, FileAnalysis, Subject
 from models.schemas import UploadedFileResponse, FileAnalysisResponse, SlideDetail
 from services.ppt_parser import parse_pptx
+from services.pdf_parser import parse_pdf
 from services.time_estimator import estimate_time
 from services.ai_estimator import ai_estimate
 
@@ -145,13 +146,20 @@ async def upload_file(
     db.commit()
     db.refresh(file_record)
 
-    # Auto-analyze PPT files
-    if file_type == "ppt" and ext == ".pptx":
+    # Auto-analyze PPT and PDF files
+    if file_type in ("ppt", "pdf"):
         try:
-            parse_result = parse_pptx(file_path)
+            # Parse based on type
+            if file_type == "ppt" and ext == ".pptx":
+                parse_result = parse_pptx(file_path)
+            elif file_type == "pdf":
+                parse_result = parse_pdf(file_path)
+            else:
+                return _build_file_response(file_record, db)  # Skip others
+
             time_result = estimate_time(parse_result)
 
-            # Build slide details JSON
+            # Build slide/page details JSON
             slide_details = [
                 {
                     "slide_number": s.slide_number,

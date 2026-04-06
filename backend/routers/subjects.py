@@ -5,6 +5,7 @@ Subject CRUD endpoints.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+import os
 from database import get_db
 from models.db_models import Subject, UploadedFile, FileAnalysis
 from models.schemas import SubjectCreate, SubjectUpdate, SubjectResponse
@@ -90,10 +91,19 @@ def update_subject(subject_id: str, data: SubjectUpdate, db: Session = Depends(g
 
 @router.delete("/{subject_id}", status_code=204)
 def delete_subject(subject_id: str, db: Session = Depends(get_db)):
-    """Delete a subject and its files."""
+    """Delete a subject and its files from disk and database."""
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
+
+    # Manually remove all linked files from disk before deleting subject
+    # This prevents orphaned files taking up space!
+    for f in subject.files:
+        if f.storage_path and os.path.exists(f.storage_path):
+            try:
+                os.remove(f.storage_path)
+            except Exception:
+                pass  # Gracefully continue if file deletion fails
 
     db.delete(subject)
     db.commit()

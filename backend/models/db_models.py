@@ -14,6 +14,25 @@ def generate_uuid() -> str:
     return str(uuid.uuid4())
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    email = Column(String(200), unique=True, nullable=False)
+    hashed_password = Column(String(200), nullable=False)
+    role = Column(String(20), default="student") # admin, teacher, student
+    full_name = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    subjects = relationship("Subject", back_populates="teacher")
+    material_requests = relationship("MaterialRequest", back_populates="student")
+    uploaded_files = relationship("UploadedFile", back_populates="uploader")
+
+    def __repr__(self):
+        return f"<User(email='{self.email}', role='{self.role}')>"
+
+
 class Subject(Base):
     __tablename__ = "subjects"
 
@@ -21,12 +40,15 @@ class Subject(Base):
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     color = Column(String(7), nullable=False, default="#8B5CF6")
+    owner_id = Column(String, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     files = relationship("UploadedFile", back_populates="subject", cascade="all, delete-orphan")
+    teacher = relationship("User", back_populates="subjects")
+    material_requests = relationship("MaterialRequest", back_populates="subject", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Subject(name='{self.name}')>"
@@ -42,15 +64,44 @@ class UploadedFile(Base):
     file_size = Column(Integer, nullable=False)  # bytes
     storage_path = Column(String(1000), nullable=False)  # path on disk
     subject_id = Column(String, ForeignKey("subjects.id"), nullable=False)
+    uploader_id = Column(String, ForeignKey("users.id"), nullable=True)
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     subject = relationship("Subject", back_populates="files")
+    uploader = relationship("User", back_populates="uploaded_files")
     analysis = relationship("FileAnalysis", back_populates="file", uselist=False,
                             cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<UploadedFile(name='{self.original_name}')>"
+
+
+class MaterialRequest(Base):
+    __tablename__ = "material_requests"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    student_id = Column(String, ForeignKey("users.id"), nullable=False)
+    subject_id = Column(String, ForeignKey("subjects.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    
+    # File details for the requested material (acts as a pending upload)
+    file_name = Column(String(500), nullable=False)
+    original_name = Column(String(500), nullable=False)
+    file_type = Column(String(10), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    storage_path = Column(String(1000), nullable=False)
+
+    status = Column(String(20), default="pending") # pending, approved, rejected
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    student = relationship("User", back_populates="material_requests")
+    subject = relationship("Subject", back_populates="material_requests")
+
+    def __repr__(self):
+        return f"<MaterialRequest(title='{self.title}', status='{self.status}')>"
 
 
 class FileAnalysis(Base):
