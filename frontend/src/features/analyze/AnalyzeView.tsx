@@ -13,9 +13,11 @@ import {
   deleteFile,
   getDownloadUrl,
   createSubject,
+  submitPR,
   type SubjectResponse,
   type UploadedFileResponse,
 } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export function AnalyzeView() {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
@@ -25,6 +27,7 @@ export function AnalyzeView() {
   const [analyzingFile, setAnalyzingFile] = useState<UploadedFileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast, showToast, hideToast } = useToast();
+  const { isStudent, user } = useAuth();
 
   // Load subjects and files from backend
   useEffect(() => {
@@ -68,9 +71,30 @@ export function AnalyzeView() {
       try {
         setUploadingFiles(prev => new Map(prev.set(tempId, 0)));
 
-        const result = await apiUploadFile(file, selectedSubjectId, (progress) => {
-          setUploadingFiles(prev => new Map(prev.set(tempId, progress)));
-        });
+        if (isStudent && user) {
+          // Send to PR / Approval queue
+          await submitPR(
+              file, 
+              selectedSubjectId, 
+              user.id, 
+              file.name, // Using file name as title
+              "Uploaded by student",
+              (progress) => setUploadingFiles(prev => new Map(prev.set(tempId, progress)))
+          );
+          showToast(`${file.name} sent to teacher for review!`, 'success');
+        } else {
+          // Direct Upload
+          const result = await apiUploadFile(file, selectedSubjectId, (progress) => {
+            setUploadingFiles(prev => new Map(prev.set(tempId, progress)));
+          });
+          setUploadedFiles(prev => [result, ...prev]);
+          showToast(`${file.name} uploaded and analyzed!`, 'success');
+
+          // Auto-open analysis modal for PPT files
+          if (result.analysis) {
+            setAnalyzingFile(result);
+          }
+        }
 
         setUploadingFiles(prev => {
           const next = new Map(prev);
@@ -78,13 +102,6 @@ export function AnalyzeView() {
           return next;
         });
 
-        setUploadedFiles(prev => [result, ...prev]);
-        showToast(`${file.name} uploaded and analyzed!`, 'success');
-
-        // Auto-open analysis modal for PPT files
-        if (result.analysis) {
-          setAnalyzingFile(result);
-        }
       } catch (error: any) {
         setUploadingFiles(prev => {
           const next = new Map(prev);
@@ -124,10 +141,12 @@ export function AnalyzeView() {
       {/* Header */}
       <div className="animate-in fade-in slide-in-from-top-4 duration-500">
         <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-text-primary)] mb-2">
-          Upload & Analyze
+          {isStudent ? 'Contribute Material' : 'Upload & Analyze'}
         </h1>
         <p className="text-[var(--color-text-muted)]">
-          Upload your PPT files to get content analysis and time estimates
+          {isStudent 
+             ? 'Upload study materials to request a review from your teacher.'
+             : 'Upload your PPT files to get content analysis and time estimates'}
         </p>
       </div>
 

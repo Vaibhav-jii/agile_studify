@@ -12,15 +12,19 @@ import { SettingsView } from '../features/settings/SettingsView';
 import { Sidebar, MobileNav } from '../components/layout/Sidebar';
 import { AnalysisModal } from '../features/analyze/components/AnalysisModal';
 import { Toast, useToast } from '../components/feedback/Toast';
+import { TeacherInbox } from '../features/prs/TeacherInbox';
+import { AdminDashboard } from '../features/admin/AdminDashboard';
 import { getAllUploadedFiles } from '../services/fileUploadService';
+import { useAuth } from '../context/AuthContext';
 
 export default function App() {
   const [appMode, setAppMode] = useState<'dark' | 'light'>('light'); // Light = proper routing structure
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  const { user } = useAuth();
+  const isSignedIn = !!user;
 
-  // Light theme states (Sprint 1 features accessible here)
-  const [isSignedIn, setIsSignedIn] = useState(false); // Start with login
+  // Render state
+  const [showLogin, setShowLogin] = useState(false);
   const [activeView, setActiveView] = useState<string>('library'); // Start at library to see Sprint 1 features
   const [analyzingResourceId, setAnalyzingResourceId] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
@@ -30,26 +34,13 @@ export default function App() {
     document.body.classList.remove('light-theme');
   }, [appMode]);
 
-  const handleLogin = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setIsLoggedIn(true);
-      setIsTransitioning(false);
-    }, 500);
-  };
-
-  const handleLogout = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setIsLoggedIn(false);
-      setIsTransitioning(false);
-    }, 500);
-  };
-
-  // Legacy light theme handlers
   const handleGetStarted = () => {
-    setIsSignedIn(true);
-    setActiveView('library'); // Go directly to library after sign in
+    setShowLogin(true);
+  };
+
+  const handleLoginSuccess = () => {
+    setShowLogin(false);
+    setActiveView('library');
   };
 
   const handleViewChange = (view: string) => {
@@ -72,8 +63,11 @@ export default function App() {
   // Use the light mode structure (proper routing) but with dark theme styling
   // This gives us access to Sprint 1 features with dark UI
 
-  // Show landing page with sign in
+  // Show landing page or login page if not signed in
   if (!isSignedIn) {
+    if (showLogin) {
+      return <LoginPage onLogin={handleLoginSuccess} />;
+    }
     return <LandingView onGetStarted={handleGetStarted} />;
   }
 
@@ -95,6 +89,8 @@ export default function App() {
             {activeView === 'quiz' && <QuizView />}
             {activeView === 'calendar' && <CalendarView />}
             {activeView === 'settings' && <SettingsView />}
+            {activeView === 'inbox' && <TeacherInbox />}
+            {activeView === 'admin' && <AdminDashboard />}
           </div>
         </main>
 

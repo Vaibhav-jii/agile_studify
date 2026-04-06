@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from routers import subjects, upload, timetable, dashboard, quiz, auth
+from routers import subjects, upload, timetable, dashboard, quiz, auth, prs
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
@@ -50,6 +50,7 @@ app.include_router(timetable.router)
 app.include_router(dashboard.router)
 app.include_router(quiz.router)
 app.include_router(auth.router)
+app.include_router(prs.router)
 
 
 @app.get("/")

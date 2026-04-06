@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
+import { loginUser } from '../../services/api';
+import { useAuth, User } from '../../context/AuthContext';
+import { useToast } from '../../components/feedback/Toast';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -11,14 +14,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const { login } = useAuth();
+  const { showToast } = useToast();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    onLogin();
+    try {
+      const response = await loginUser(email, password);
+      // Construct User object and login
+      const sessionUser: User = {
+        id: response.id,
+        email: response.email,
+        role: response.role as User['role'],
+        full_name: response.full_name
+      };
+      
+      login(sessionUser);
+      onLogin();
+      showToast('Login successful!', 'success');
+    } catch (error: any) {
+      showToast(error.message || 'Login failed. Please check credentials.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

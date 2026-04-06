@@ -55,3 +55,16 @@ def get_users(db: Session = Depends(get_db)):
     """Admin endpoint to list all users."""
     users = db.query(User).all()
     return [{"id": u.id, "email": u.email, "role": u.role, "full_name": u.full_name} for u in users]
+
+class RoleUpdateRequest(BaseModel):
+    role: str
+
+@router.put("/users/{user_id}/role")
+def update_user_role(user_id: str, req: RoleUpdateRequest, db: Session = Depends(get_db)):
+    """Admin endpoint to update user roles."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = req.role
+    db.commit()
+    return {"message": "Role updated successfully", "new_role": user.role}

@@ -10,6 +10,7 @@ import { Input } from '../../components/form-controls/Input';
 import { Card } from '../../components/data-display/Card';
 import { Modal } from '../../components/layout/Modal';
 import { Toast, useToast } from '../../components/feedback/Toast';
+import { useAuth } from '../../context/AuthContext';
 import {
   fetchSubjects,
   createSubject,
@@ -24,6 +25,7 @@ const SUBJECT_COLORS = [
 ];
 
 export function SubjectManagement() {
+  const { isStudent } = useAuth();
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<SubjectResponse | null>(null);
@@ -124,18 +126,20 @@ export function SubjectManagement() {
           <h2 className="text-2xl md:text-3xl font-bold text-[var(--color-text-primary)] mb-2">
             My Subjects
           </h2>
-          <p className="text-[var(--color-text-muted)]">
+            <p className="text-[var(--color-text-muted)]">
             Manage your study subjects and organize your materials
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => handleOpenModal()}
-        >
-          <Plus size={20} />
-          <span className="hidden sm:inline">Add Subject</span>
-        </Button>
+        {!isStudent && (
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => handleOpenModal()}
+          >
+            <Plus size={20} />
+            <span className="hidden sm:inline">Add Subject</span>
+          </Button>
+        )}
       </div>
 
       {/* Subjects Grid */}
@@ -185,26 +189,28 @@ export function SubjectManagement() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenModal(subject)}
-                  className="flex-1"
-                >
-                  <Edit2 size={16} />
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(subject.id, subject.name)}
-                  className="flex-1 text-[var(--color-error)] hover:bg-[var(--color-error)]/10"
-                >
-                  <Trash2 size={16} />
-                  Delete
-                </Button>
-              </div>
+              {!isStudent && (
+                <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleOpenModal(subject)}
+                    className="flex-1"
+                  >
+                    <Edit2 size={16} />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(subject.id, subject.name)}
+                    className="flex-1 text-[var(--color-error)] hover:bg-[var(--color-error)]/10"
+                  >
+                    <Trash2 size={16} />
+                    Delete
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
         ))}

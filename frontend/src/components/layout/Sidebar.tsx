@@ -1,12 +1,14 @@
 import React from 'react';
-import { LayoutDashboard, Library, Calendar, BarChart3, Settings, BookOpen, Brain } from 'lucide-react';
+import { LayoutDashboard, Library, Calendar, BarChart3, Settings, BookOpen, Brain, Inbox, Users } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { RoleSwitcher } from '../navigation/RoleSwitcher';
 
 interface SidebarProps {
   activeView: string;
   onViewChange: (view: string) => void;
 }
 
-const navItems = [
+const defaultNavItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'library', label: 'Library', icon: Library },
   { id: 'planner', label: 'Planner', icon: BookOpen },
@@ -16,12 +18,41 @@ const navItems = [
   { id: 'settings', label: 'Settings', icon: Settings }
 ];
 
+function getNavItems(isTeacher: boolean, isAdmin: boolean) {
+  let items = [...defaultNavItems];
+  
+  if (isTeacher) {
+    items = [
+      items[0],
+      { id: 'inbox', label: 'PR Inbox', icon: Inbox },
+      ...items.slice(1)
+    ];
+  }
+  
+  if (isAdmin) {
+    items = [
+      items[0],
+      { id: 'admin', label: 'Users', icon: Users },
+      ...items.slice(1)
+    ];
+  }
+
+  return items;
+}
+
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
+  const { isTeacher, isAdmin } = useAuth();
+  const navItems = getNavItems(isTeacher, isAdmin);
+
   return (
-    <aside className="hidden lg:block w-64 h-screen sticky top-0 p-6">
-      <div className="mb-8">
+    <aside className="hidden lg:block w-64 h-screen sticky top-0 p-6 flex flex-col">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold gradient-text">STUDIFY</h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-1">Study smarter, not longer</p>
+      </div>
+
+      <div className="mb-6">
+        <RoleSwitcher />
       </div>
 
       <nav className="space-y-2">
@@ -54,6 +85,9 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
 }
 
 export function MobileNav({ activeView, onViewChange }: SidebarProps) {
+  const { isTeacher, isAdmin } = useAuth();
+  const navItems = getNavItems(isTeacher, isAdmin);
+
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-white/20">
       <div className="flex items-center justify-around px-2 py-3">
