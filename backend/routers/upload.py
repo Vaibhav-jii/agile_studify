@@ -3,7 +3,7 @@ File upload and analysis endpoints.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 import os
 import json
@@ -17,6 +17,8 @@ from services.ppt_parser import parse_pptx
 from services.pdf_parser import parse_pdf
 from services.time_estimator import estimate_time
 from services.ai_estimator import ai_estimate
+from services.supabase_service import upload_file_to_supabase, get_public_url, delete_file_from_supabase
+from services.mongo_service import save_ai_log
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +134,9 @@ async def upload_file(
     with open(file_path, "wb") as f:
         f.write(content)
 
+    # Upload to Supabase asynchronously
+    await upload_file_to_supabase(content, safe_name, file.content_type or "application/octet-stream")
+
     # Create DB record
     file_record = UploadedFileModel(
         id=file_id,
@@ -193,6 +198,9 @@ async def upload_file(
                     image_count=parse_result.total_image_count,
                 )
                 if ai_result:
+                    # Persist raw AI interactions to help with future debugging/prompt tuning
+                    await save_ai_log(file_id, ai_result.prompt, ai_result.raw_response)
+                    
                     analysis.ai_estimated_study_time = ai_result.estimated_study_minutes
                     analysis.ai_difficulty = ai_result.difficulty
                     analysis.ai_key_topics = json.dumps(ai_result.key_topics)
@@ -246,6 +254,9 @@ def delete_file(file_id: str, db: Session = Depends(get_db)):
     # Delete file from disk
     if os.path.exists(file_record.storage_path):
         os.remove(file_record.storage_path)
+        
+    # Delete file from Supabase
+    delete_file_from_supabase(f"materials/{file_record.file_name}")
 
     db.delete(file_record)
     db.commit()
@@ -258,8 +269,14 @@ def download_file(file_id: str, db: Session = Depends(get_db)):
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
+    # Try to redirect to cloud URL first
+    cloud_url = get_public_url(f"materials/{file_record.file_name}")
+    if cloud_url:
+        return RedirectResponse(url=cloud_url)
+
+    # Fallback to local file download
     if not os.path.exists(file_record.storage_path):
-        raise HTTPException(status_code=404, detail="File not found on disk")
+        raise HTTPException(status_code=404, detail="File not found on disk or cloud")
 
     return FileResponse(
         path=file_record.storage_path,

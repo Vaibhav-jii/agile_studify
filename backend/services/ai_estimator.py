@@ -46,6 +46,8 @@ class AIEstimateResult:
         self.key_topics: list[str] = []
         self.study_tips: list[str] = []
         self.reasoning: str = ""
+        self.raw_response: str = ""
+        self.prompt: str = ""
 
 
 def ai_estimate(
@@ -101,6 +103,7 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
 
         # Parse the JSON response
         text = response.text.strip()
+        raw_response_text = text
         # Remove markdown code fences if present
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
@@ -112,6 +115,8 @@ Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
         data = json.loads(text)
 
         result = AIEstimateResult()
+        result.raw_response = raw_response_text
+        result.prompt = prompt
         result.estimated_study_minutes = float(data.get("estimated_study_minutes", 0))
         result.difficulty = data.get("difficulty", "medium")
         result.key_topics = data.get("key_topics", [])[:8]  # Cap at 8 topics
