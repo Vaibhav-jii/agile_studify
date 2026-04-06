@@ -66,19 +66,18 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         recent_analyses.append(entry)
 
     # Subjects with their stats
-    subjects = db.query(Subject).order_by(Subject.created_at.desc()).all()
+    subjects_list = db.query(Subject).order_by(Subject.created_at.desc()).all()
     subject_stats = []
-    for s in subjects:
-        file_count = db.query(func.count(UploadedFile.id)).filter(
-            UploadedFile.subject_id == s.id
-        ).scalar() or 0
-
-        study_time = (
-            db.query(func.sum(FileAnalysis.estimated_study_time))
-            .join(UploadedFile, FileAnalysis.file_id == UploadedFile.id)
-            .filter(UploadedFile.subject_id == s.id)
-            .scalar() or 0.0
-        )
+    
+    for s in subjects_list:
+        # Using relationships is safer than string ID comparisons
+        files_for_subject = s.files
+        file_count = len(files_for_subject)
+        
+        study_time = 0.0
+        for f in files_for_subject:
+            if f.analysis:
+                study_time += (f.analysis.ai_estimated_study_time or f.analysis.estimated_study_time or 0.0)
 
         subject_stats.append({
             "id": s.id,
@@ -87,6 +86,11 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
             "file_count": file_count,
             "total_study_minutes": round(study_time, 1),
         })
+
+    # Debug log for server stdout
+    print(f"DEBUG: Dashboard stats calculated for {len(subject_stats)} subjects. Total minutes: {total_study_minutes}")
+    for stat in subject_stats:
+        print(f"  - {stat['name']}: {stat['file_count']} files, {stat['total_study_minutes']} mins")
 
     return {
         "total_subjects": total_subjects,

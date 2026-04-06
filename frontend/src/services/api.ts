@@ -171,7 +171,31 @@ export async function deleteFile(fileId: string): Promise<void> {
 }
 
 export function getDownloadUrl(fileId: string): string {
+    // Legacy — kept for backward compat. Prefer downloadFile() instead.
     return `${API_BASE}/files/${fileId}/download`;
+}
+
+export async function downloadFile(fileId: string, fallbackName: string = 'file'): Promise<void> {
+    const fullUrl = `${API_BASE}/files/${fileId}/download`;
+    const resp = await fetch(fullUrl);
+    if (!resp.ok) throw new Error('Download failed');
+
+    const contentType = resp.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        // Cloud URL path — open directly in new tab
+        const data = await resp.json() as { url: string; filename: string };
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+    } else {
+        // Local binary file path — trigger browser download
+        const blob = await resp.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fallbackName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
 }
 
 // ─── Timetable API ───────────────────────────────────────

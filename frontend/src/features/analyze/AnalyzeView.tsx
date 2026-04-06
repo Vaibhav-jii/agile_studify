@@ -11,7 +11,7 @@ import {
   uploadFile as apiUploadFile,
   fetchFiles,
   deleteFile,
-  getDownloadUrl,
+  downloadFile,
   createSubject,
   submitPR,
   type SubjectResponse,
@@ -266,11 +266,14 @@ export function AnalyzeView() {
                           View Analysis
                         </Button>
                       )}
-                      <a href={getDownloadUrl(file.id)} download>
-                        <Button variant="ghost" className="p-2">
-                          <Download size={16} />
-                        </Button>
-                      </a>
+                      <Button
+                        variant="ghost"
+                        className="p-2"
+                        onClick={() => downloadFile(file.id, file.original_name)}
+                        title="Download"
+                      >
+                        <Download size={16} />
+                      </Button>
                       <Button variant="ghost" className="p-2 text-red-400 hover:text-red-300" onClick={() => handleDelete(file.id)}>
                         <Trash2 size={16} />
                       </Button>

@@ -30,6 +30,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
     try {
       setLoading(true);
       const data = await fetchDashboardStats();
+      console.log('Dashboard stats data:', data);
       setStats(data);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -96,55 +97,87 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
       {stats && stats.subjects.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '150ms' }}>
           <Card>
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">Study Time Distribution (Minutes)</h3>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.subjects}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }: any) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="total_study_minutes"
-                  >
-                    {stats.subjects.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-card)', color: 'var(--color-text-primary)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div style={{ padding: '20px 20px 4px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text-primary)' }}>Study Distribution</h3>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Minutes spent per subject</p>
             </div>
+            {(() => {
+              const pieData = stats.subjects.filter(s => s.total_study_minutes > 0);
+              if (pieData.length === 0) {
+                return (
+                  <div style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', opacity: 0.45 }}>
+                    <span style={{ fontSize: '40px' }}>📊</span>
+                    <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                      No study time yet.<br/>Analyse files to populate this.
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div style={{ height: '280px', padding: '8px' }}>
+                  <ResponsiveContainer width="99%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={4}
+                        dataKey="total_study_minutes"
+                        nameKey="name"
+                        animationBegin={0}
+                        animationDuration={1200}
+                      >
+                        {pieData.map((entry, i) => (
+                          <Cell key={`pie-${i}`} fill={entry.color || '#8B5CF6'} stroke="rgba(255,255,255,0.08)" />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: 'rgba(20,20,35,0.97)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '13px' }}
+                        formatter={(v: any) => [`${v} min`, 'Study Time']}
+                      />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
           </Card>
 
           <Card>
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-6">Files per Subject</h3>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.subjects}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{ fill: 'var(--color-text-muted)' }}
-                  />
-                  <YAxis tick={{ fill: 'var(--color-text-muted)' }} />
-                  <Tooltip 
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    contentStyle={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border-card)', color: 'var(--color-text-primary)' }}
-                  />
-                  <Bar dataKey="file_count">
-                    {stats.subjects.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <div style={{ padding: '20px 20px 4px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text-primary)' }}>Material Density</h3>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Files uploaded per subject</p>
             </div>
+            {stats.subjects.every(s => s.file_count === 0) ? (
+              <div style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', opacity: 0.45 }}>
+                <span style={{ fontSize: '40px' }}>📁</span>
+                <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+                  No files uploaded yet.<br/>Upload materials to see this chart.
+                </p>
+              </div>
+            ) : (
+              <div style={{ height: '280px', padding: '8px' }}>
+                <ResponsiveContainer width="99%" height="100%">
+                  <BarChart data={stats.subjects} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.06} vertical={false} />
+                    <XAxis dataKey="name" tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, 'auto']} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      contentStyle={{ backgroundColor: 'rgba(20,20,35,0.97)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)', color: '#fff', fontSize: '13px' }}
+                      formatter={(v: any) => [v, 'Files']}
+                    />
+                    <Bar dataKey="file_count" radius={[6, 6, 0, 0]} maxBarSize={50}>
+                      {stats.subjects.map((entry, i) => (
+                        <Cell key={`bar-${i}`} fill={entry.color || '#8B5CF6'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -214,9 +247,12 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge size="sm" style={{ backgroundColor: `${analysis.subject_color}30`, color: analysis.subject_color }}>
+                          <span 
+                            className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                            style={{ backgroundColor: `${analysis.subject_color}20`, color: analysis.subject_color, border: `1px solid ${analysis.subject_color}40` }}
+                          >
                             {analysis.subject}
-                          </Badge>
+                          </span>
                           {analysis.difficulty && (
                             <Badge variant={
                               analysis.difficulty === 'easy' ? 'success' :

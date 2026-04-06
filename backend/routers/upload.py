@@ -264,22 +264,22 @@ def delete_file(file_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{file_id}/download")
 def download_file(file_id: str, db: Session = Depends(get_db)):
-    """Download the original file."""
+    """Download a file — serves from local disk if available, otherwise from Supabase cloud."""
     file_record = db.query(UploadedFileModel).filter(UploadedFileModel.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Try to redirect to cloud URL first
+    # Priority 1: local disk (covers all files uploaded before Supabase was set up)
+    if os.path.exists(file_record.storage_path):
+        return FileResponse(
+            path=file_record.storage_path,
+            filename=file_record.original_name,
+            media_type="application/octet-stream",
+        )
+
+    # Priority 2: Supabase cloud (for files uploaded after cloud storage was enabled)
     cloud_url = get_public_url(f"materials/{file_record.file_name}")
     if cloud_url:
-        return RedirectResponse(url=cloud_url)
+        return {"url": cloud_url, "source": "cloud", "filename": file_record.original_name}
 
-    # Fallback to local file download
-    if not os.path.exists(file_record.storage_path):
-        raise HTTPException(status_code=404, detail="File not found on disk or cloud")
-
-    return FileResponse(
-        path=file_record.storage_path,
-        filename=file_record.original_name,
-        media_type="application/octet-stream",
-    )
+    raise HTTPException(status_code=404, detail="File not found on disk or cloud")

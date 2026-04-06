@@ -10,7 +10,7 @@ import {
   fetchSubjects,
   fetchFiles,
   deleteFile,
-  getDownloadUrl,
+  downloadFile,
   type SubjectResponse,
   type UploadedFileResponse,
 } from '../../services/api';
@@ -238,11 +238,14 @@ export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <a href={getDownloadUrl(file.id)} download>
-                          <Button variant="ghost" className="p-2">
-                            <Download size={14} />
-                          </Button>
-                        </a>
+                        <Button
+                          variant="ghost"
+                          className="p-2"
+                          onClick={() => downloadFile(file.id, file.original_name)}
+                          title="Download"
+                        >
+                          <Download size={14} />
+                        </Button>
                         <Button variant="ghost" className="p-2 text-red-400 hover:text-red-300" onClick={() => handleDelete(file.id)}>
                           <Trash2 size={14} />
                         </Button>
