@@ -12,14 +12,15 @@ from models.db_models import Subject, UploadedFile, FileAnalysis
 from models.schemas import QuizRequest, QuizQuestionResponse
 from services.ppt_parser import parse_pptx
 from services.quiz_generator import generate_quiz
+from services.mongo_service import save_quiz, get_quizzes_by_subject
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/quiz", tags=["quiz"])
 
 
-@router.post("/generate", response_model=list[QuizQuestionResponse])
-def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
+@router.post("/generate")
+async def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
     """
     Generate a quiz for a subject using its uploaded PPT content.
     Extracts text and generates MCQ questions locally (no API needed).
@@ -76,4 +77,34 @@ def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
             detail="Could not generate enough questions from the content. Try uploading more detailed study materials.",
         )
 
-    return questions
+    # Handle both plain dicts and Pydantic models
+    quiz_data_for_mongo = [
+        q if isinstance(q, dict) else q.dict()
+        for q in questions
+    ]
+
+    # Save to MongoDB asynchronously
+    mongo_id = await save_quiz(request.subject_id, quiz_data_for_mongo)
+    
+    if mongo_id:
+        logger.info(f"Quiz successfully saved to MongoDB with ID: {mongo_id}")
+    else:
+        logger.warning("Quiz generated but could NOT be saved to MongoDB (Is MONGODB_URI set?).")
+
+    # Return the generated questions and tracking info
+    return {
+        "mongo_id": mongo_id,
+        "questions": questions
+    }
+
+@router.get("/subject/{subject_id}")
+async def get_quizzes(subject_id: str, db: Session = Depends(get_db)):
+    """
+    Fetch all previously generated quizzes for a subject from MongoDB.
+    """
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    quizzes = await get_quizzes_by_subject(subject_id)
+    return {"quizzes": quizzes}

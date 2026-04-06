@@ -203,6 +203,7 @@ export async function generateTimetable(data: {
     days_count?: number;
     learner_speed?: 'slow' | 'medium' | 'fast';
     will_take_notes?: boolean;
+    user_id?: string;
 }): Promise<TimetableResponse> {
     return request<TimetableResponse>('/timetable/generate', {
         method: 'POST',
@@ -224,14 +225,19 @@ export async function generateQuiz(
     subjectId: string,
     numQuestions: number = 10
 ): Promise<QuizQuestionResponse[]> {
-    return request<QuizQuestionResponse[]>('/quiz/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            subject_id: subjectId,
-            num_questions: numQuestions,
-        }),
-    });
+    const response = await request<{ mongo_id: string | null; questions: QuizQuestionResponse[] }>(
+        '/quiz/generate',
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subject_id: subjectId,
+                num_questions: numQuestions,
+            }),
+        }
+    );
+    // Backend now returns { mongo_id, questions } — extract the array
+    return response.questions ?? (response as any);
 }
 
 // ─── Dashboard API ───────────────────────────────────────

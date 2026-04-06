@@ -13,6 +13,7 @@ import {
   type SubjectResponse,
   type StudySessionResponse,
 } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export function PlannerView() {
   const [showGenerateForm, setShowGenerateForm] = useState(false);
@@ -24,6 +25,7 @@ export function PlannerView() {
   const [studySessions, setStudySessions] = useState<StudySession[]>([]);
   const [generating, setGenerating] = useState(false);
   const [timetableStats, setTimetableStats] = useState({ totalHours: 0, days: 0, subjectsCovered: 0 });
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     hoursPerDay: '4',
@@ -69,6 +71,7 @@ export function PlannerView() {
         days_count: parseInt(formData.daysCount) || 7,
         learner_speed: formData.learnerSpeed,
         will_take_notes: formData.willTakeNotes,
+        user_id: user?.id || undefined,
       });
 
       // Map API response to UI StudySession format

@@ -9,12 +9,13 @@ from database import get_db
 from models.db_models import Subject, UploadedFile, FileAnalysis
 from models.schemas import TimetableRequest, TimetableResponse
 from services.scheduler import generate_timetable
+from services.mongo_service import save_study_plan, get_study_plans_by_user
 
 router = APIRouter(prefix="/api/timetable", tags=["timetable"])
 
 
 @router.post("/generate", response_model=TimetableResponse)
-def create_timetable(request: TimetableRequest, db: Session = Depends(get_db)):
+async def create_timetable(request: TimetableRequest, db: Session = Depends(get_db)):
     """
     Generate a study timetable based on uploaded materials.
     Looks up total study time per subject from file analyses.
@@ -58,4 +59,20 @@ def create_timetable(request: TimetableRequest, db: Session = Depends(get_db)):
         will_take_notes=request.will_take_notes,
     )
 
+    # Save to MongoDB asynchronously if user_id is provided
+    if request.user_id:
+        # Convert result to dict for MongoDB
+        plan_dict = result.dict()
+        mongo_id = await save_study_plan(request.user_id, plan_dict)
+        if mongo_id:
+            result.mongo_id = mongo_id
+
     return result
+
+@router.get("/user/{user_id}")
+async def get_saved_plans(user_id: str):
+    """
+    Fetch all previously saved study plans for a specific user from MongoDB.
+    """
+    plans = await get_study_plans_by_user(user_id)
+    return {"plans": plans}

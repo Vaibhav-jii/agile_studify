@@ -15,7 +15,7 @@ def generate_uuid() -> str:
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "studify_users"
 
     id = Column(String, primary_key=True, default=generate_uuid)
     email = Column(String(200), unique=True, nullable=False)
@@ -40,7 +40,7 @@ class Subject(Base):
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     color = Column(String(7), nullable=False, default="#8B5CF6")
-    owner_id = Column(String, ForeignKey("users.id"), nullable=True)
+    owner_id = Column(String, ForeignKey("studify_users.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc))
@@ -64,7 +64,7 @@ class UploadedFile(Base):
     file_size = Column(Integer, nullable=False)  # bytes
     storage_path = Column(String(1000), nullable=False)  # path on disk
     subject_id = Column(String, ForeignKey("subjects.id"), nullable=False)
-    uploader_id = Column(String, ForeignKey("users.id"), nullable=True)
+    uploader_id = Column(String, ForeignKey("studify_users.id"), nullable=True)
     uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -81,7 +81,7 @@ class MaterialRequest(Base):
     __tablename__ = "material_requests"
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    student_id = Column(String, ForeignKey("users.id"), nullable=False)
+    student_id = Column(String, ForeignKey("studify_users.id"), nullable=False)
     subject_id = Column(String, ForeignKey("subjects.id"), nullable=False)
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)

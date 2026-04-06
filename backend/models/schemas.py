@@ -89,6 +89,7 @@ class TimetableRequest(BaseModel):
     days_count: int = Field(default=7, ge=1, le=60)
     learner_speed: Literal["slow", "medium", "fast"] = "medium"
     will_take_notes: bool = False
+    user_id: Optional[str] = None # For saving to MongoDB
 
 
 class StudySessionResponse(BaseModel):
@@ -108,6 +109,7 @@ class TimetableResponse(BaseModel):
     total_hours: float
     days: int
     subjects_covered: int
+    mongo_id: Optional[str] = None # Reference to saved document
 
 
 # ─── Quiz Schemas ─────────────────────────────────────────
