@@ -291,13 +291,16 @@ export interface DashboardStats {
     total_subjects: number;
     total_files: number;
     total_analyzed: number;
+    selected_count: number;
     total_study_hours: number;
     recent_analyses: DashboardRecentFile[];
     subjects: DashboardSubjectStat[];
+    has_filter: boolean;
 }
 
-export async function fetchDashboardStats(): Promise<DashboardStats> {
-    return request<DashboardStats>('/dashboard/stats');
+export async function fetchDashboardStats(fileIds?: string[]): Promise<DashboardStats> {
+    const query = fileIds && fileIds.length > 0 ? `?file_ids=${fileIds.join(',')}` : '';
+    return request<DashboardStats>(`/dashboard/stats${query}`);
 }
 
 // ─── Material PR API ─────────────────────────────────────
@@ -426,11 +429,21 @@ export async function registerUser(
     email: string,
     password: string,
     role: string,
-    full_name: string
+    full_name: string = ""
 ): Promise<RegisterResponse> {
     return request<RegisterResponse>('/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email, password, role, full_name }),
+    });
+}
+
+export async function updateProfile(userId: string, data: { full_name: string, email: string }): Promise<LoginResponse> {
+    return request<LoginResponse>(`/auth/users/${userId}/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
     });
 }

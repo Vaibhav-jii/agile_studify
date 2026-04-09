@@ -9,20 +9,20 @@ from services.ppt_parser import PptParseResult, SlideInfo
 # ─── Tuning constants ─────────────────────────────────────
 # Average words-per-minute reading speed for slide material
 # (slides are scanned/skimmed, not read like textbooks)
-READING_WPM = 200
+READING_WPM = 450
 
 # Minutes to spend per image (diagrams, charts, figures)
-MINUTES_PER_IMAGE = 0.8
+MINUTES_PER_IMAGE = 0.2
 
 # Base time per slide even if it's mostly empty (title slides, transitions)
-BASE_MINUTES_PER_SLIDE = 0.25
+BASE_MINUTES_PER_SLIDE = 0.1
 
 # Difficulty thresholds (words per slide average)
 EASY_THRESHOLD = 40     # ≤40 words/slide → easy
 HARD_THRESHOLD = 120    # ≥120 words/slide → hard
 
 # Study multiplier over raw reading time (note-taking, comprehension)
-STUDY_MULTIPLIER = 1.25
+STUDY_MULTIPLIER = 1.0
 
 
 class SlideTimeEstimate:

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Grid, List, SlidersHorizontal, BookOpen, Clock, FileText, BarChart3, Download, Trash2 } from 'lucide-react';
+import { Grid, List, SlidersHorizontal, BookOpen, Clock, FileText, BarChart3, Download, Trash2, CheckSquare, Square } from 'lucide-react';
 import { SearchInput } from '../../components/form-controls/Input';
 import { Chip } from '../../components/form-controls/Chip';
 import { Button } from '../../components/form-controls/Button';
 import { Card } from '../../components/data-display/Card';
 import { Badge } from '../../components/data-display/Badge';
 import { SubjectManagement } from './SubjectManagement';
+import { useAuth } from '../../context/AuthContext';
 import {
   fetchSubjects,
   fetchFiles,
@@ -21,6 +22,7 @@ interface LibraryViewProps {
 }
 
 export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
+  const { isStudent, user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -28,6 +30,15 @@ export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [files, setFiles] = useState<UploadedFileResponse[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Study list: tracked per-user in localStorage
+  const storageKey = user ? `studify_studylist_${user.id}` : 'studify_studylist';
+  const [studyList, setStudyList] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
 
   useEffect(() => {
     loadData();
@@ -65,6 +76,20 @@ export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
     const matchesTags = selectedTags.length === 0 || selectedTags.includes(file.subject_name || '');
     return matchesSearch && matchesTags;
   });
+
+  // Persist study list to localStorage
+  const toggleStudyList = (fileId: string) => {
+    setStudyList(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
+      localStorage.setItem(storageKey, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const handleDelete = async (fileId: string) => {
     try {
@@ -238,6 +263,17 @@ export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* Study list toggle for students */}
+                        {isStudent && (
+                          <Button
+                            variant="ghost"
+                            className={`p-2 transition-colors ${studyList.has(file.id) ? 'text-green-400 hover:text-green-300' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'}`}
+                            onClick={() => toggleStudyList(file.id)}
+                            title={studyList.has(file.id) ? 'Remove from study list' : 'Add to study list'}
+                          >
+                            {studyList.has(file.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           className="p-2"
@@ -246,9 +282,11 @@ export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
                         >
                           <Download size={14} />
                         </Button>
-                        <Button variant="ghost" className="p-2 text-red-400 hover:text-red-300" onClick={() => handleDelete(file.id)}>
-                          <Trash2 size={14} />
-                        </Button>
+                        {!isStudent && (
+                          <Button variant="ghost" className="p-2 text-red-400 hover:text-red-300" onClick={() => handleDelete(file.id)}>
+                            <Trash2 size={14} />
+                          </Button>
+                        )}
                       </div>
                     </div>
 

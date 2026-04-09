@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
-import { User, Bell, Palette, Clock, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User as UserIcon, Bell, Palette, Clock, Shield } from 'lucide-react';
 import { Card } from '../../components/data-display/Card';
 import { Input } from '../../components/form-controls/Input';
 import { Button } from '../../components/form-controls/Button';
 import { Badge } from '../../components/data-display/Badge';
+import { useAuth } from '../../context/AuthContext';
+import { updateProfile } from '../../services/api';
+import { useToast, Toast } from '../../components/feedback/Toast';
 
 export function SettingsView() {
+  const { user, updateUser } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+
   const [settings, setSettings] = useState({
-    name: 'Vaibhav Bansal',
-    email: 'bansalvaibhav@gmail.com',
+    name: user?.full_name || '',
+    email: user?.email || '',
     studyStyle: 'pomodoro',
     sessionDuration: '25',
     breakDuration: '5',
@@ -22,9 +29,30 @@ export function SettingsView() {
     theme: 'default'
   });
 
-  const handleSave = () => {
-    // Save settings logic
-    console.log('Settings saved:', settings);
+  // Sync state if user context updates from somewhere else
+  useEffect(() => {
+    if (user) {
+      setSettings(s => ({ ...s, name: user.full_name || '', email: user.email || '' }));
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      if (user) {
+        // Update user on the backend
+        const res = await updateProfile(user.id, { full_name: settings.name, email: settings.email });
+        
+        // Update user in local context/storage
+        updateUser({ full_name: res.full_name, email: res.email });
+        
+        showToast('Profile and settings saved successfully!', 'success');
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to save settings', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -43,7 +71,7 @@ export function SettingsView() {
       <Card variant="default" className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-white">
-            <User size={20} />
+            <UserIcon size={20} />
           </div>
           <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
             Profile

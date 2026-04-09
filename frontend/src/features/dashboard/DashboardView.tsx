@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, BookOpen, TrendingUp, Bell, FileText, Sparkles, Brain } from 'lucide-react';
+import { Clock, BookOpen, TrendingUp, Bell, FileText, Sparkles, Brain, CheckSquare } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -7,6 +7,7 @@ import {
 import { StatsCard, Card } from '../../components/data-display/Card';
 import { Badge } from '../../components/data-display/Badge';
 import { Button } from '../../components/form-controls/Button';
+import { useAuth } from '../../context/AuthContext';
 import {
   fetchDashboardStats,
   type DashboardStats,
@@ -21,6 +22,7 @@ interface DashboardViewProps {
 export function DashboardView({ onNavigate }: DashboardViewProps) {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const { isStudent, user } = useAuth();
 
   useEffect(() => {
     loadDashboard();
@@ -29,8 +31,23 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
   const loadDashboard = async () => {
     try {
       setLoading(true);
-      const data = await fetchDashboardStats();
-      console.log('Dashboard stats data:', data);
+
+      // If student, load their study list from localStorage
+      let fileIds: string[] | undefined;
+      if (isStudent && user) {
+        const storageKey = `studify_studylist_${user.id}`;
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              fileIds = parsed;
+            }
+          }
+        } catch { /* ignore parse errors */ }
+      }
+
+      const data = await fetchDashboardStats(fileIds);
       setStats(data);
     } catch (error) {
       console.error('Failed to load dashboard:', error);
@@ -69,12 +86,43 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         </p>
       </div>
 
+      {/* Study List Info Banner (students only) */}
+      {isStudent && stats && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {stats.has_filter ? (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/30">
+              <CheckSquare size={18} className="text-green-400 flex-shrink-0" />
+              <p className="text-sm text-green-300">
+                Showing stats for <strong>{stats.selected_count} selected file{stats.selected_count !== 1 ? 's' : ''}</strong> from your study list.
+                <button
+                  onClick={() => onNavigate('library')}
+                  className="ml-2 underline text-green-400 hover:text-green-300"
+                >
+                  Edit study list
+                </button>
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--color-primary-violet)]/10 border border-[var(--color-primary-violet)]/30">
+              <CheckSquare size={18} className="text-[var(--color-primary-violet)] flex-shrink-0" />
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Tip: Go to the <button onClick={() => onNavigate('library')} className="underline text-[var(--color-primary-violet)] hover:text-white">Library</button> and tick the PPTs you want to study. Your dashboard will then show the time needed for <em>only</em> those files.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
         <StatsCard
-          title="Total Study Time"
+          title={stats?.has_filter ? 'Study Time (Selected)' : 'Total Study Time'}
           value={stats ? `${stats.total_study_hours}h` : '—'}
-          subtitle={stats ? `${stats.total_analyzed} files analyzed` : 'Loading...'}
+          subtitle={
+            stats?.has_filter
+              ? `${stats.selected_count} of ${stats.total_analyzed} files selected`
+              : stats ? `${stats.total_analyzed} files analyzed` : 'Loading...'
+          }
           icon={<Clock size={20} />}
         />
         <StatsCard
@@ -98,8 +146,10 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '150ms' }}>
           <Card>
             <div style={{ padding: '20px 20px 4px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text-primary)' }}>Study Distribution</h3>
-              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Minutes spent per subject</p>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                {stats.has_filter ? 'Study Distribution (Selected)' : 'Study Distribution'}
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '2px' }}>Minutes per subject</p>
             </div>
             {(() => {
               const pieData = stats.subjects.filter(s => s.total_study_minutes > 0);
@@ -108,7 +158,9 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                   <div style={{ height: '260px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', opacity: 0.45 }}>
                     <span style={{ fontSize: '40px' }}>📊</span>
                     <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
-                      No study time yet.<br/>Analyse files to populate this.
+                      {stats.has_filter
+                        ? <>No study time for selected files.<br/>Tick files in the Library to see stats.</>
+                        : <>No study time yet.<br/>Analyse files to populate this.</>}
                     </p>
                   </div>
                 );
@@ -326,7 +378,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                       ✅ {stats.total_analyzed} file{stats.total_analyzed !== 1 ? 's' : ''} analyzed
                     </p>
                     <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                      {stats.total_study_hours}h total estimated study time
+                      {stats.total_study_hours}h {stats.has_filter ? 'selected' : 'total'} estimated study time
                     </p>
                   </div>
                 )}
@@ -359,8 +411,12 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                   onClick={() => onNavigate('library')}
                   className="w-full p-3 text-left rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
                 >
-                  <p className="font-medium text-[var(--color-text-primary)]">Manage Subjects</p>
-                  <p className="text-sm text-[var(--color-text-muted)]">Add or edit subjects</p>
+                  <p className="font-medium text-[var(--color-text-primary)]">
+                    {isStudent ? 'My Study List' : 'Manage Subjects'}
+                  </p>
+                  <p className="text-sm text-[var(--color-text-muted)]">
+                    {isStudent ? 'Select files to study' : 'Add or edit subjects'}
+                  </p>
                 </button>
               </div>
             </Card>

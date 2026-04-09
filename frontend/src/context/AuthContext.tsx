@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null;
   login: (user: User) => void;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
   isTeacher: boolean;
   isAdmin: boolean;
   isStudent: boolean;
@@ -40,10 +41,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('studify_session');
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+      localStorage.setItem('studify_session', JSON.stringify(updatedUser));
+    }
+  };
+
   const value = {
     user,
     login,
     logout,
+    updateUser,
     isTeacher: user?.role === 'teacher',
     isAdmin: user?.role === 'admin',
     isStudent: user?.role === 'student'

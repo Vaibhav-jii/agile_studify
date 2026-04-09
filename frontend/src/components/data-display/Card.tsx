@@ -6,6 +6,7 @@ interface CardProps {
   className?: string;
   onClick?: () => void;
   hoverable?: boolean;
+  style?: React.CSSProperties;
 }
 
 export function Card({ 
@@ -13,7 +14,8 @@ export function Card({
   variant = 'default', 
   className = '',
   onClick,
-  hoverable = false
+  hoverable = false,
+  style
 }: CardProps) {
   const baseStyles = `
     glass-card rounded-[var(--radius-md)] transition-all duration-300
@@ -33,6 +35,7 @@ export function Card({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
+      style={style}
       onKeyDown={(e) => {
         if (onClick && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();

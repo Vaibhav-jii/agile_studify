@@ -2,10 +2,11 @@
 Dashboard endpoint — aggregates real data from the database.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 from database import get_db
 from models.db_models import Subject, UploadedFile, FileAnalysis
@@ -14,11 +15,19 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("/stats")
-def get_dashboard_stats(db: Session = Depends(get_db)):
+def get_dashboard_stats(
+    file_ids: Optional[str] = Query(None, description="Comma-separated file IDs to filter stats (student study list)"),
+    db: Session = Depends(get_db),
+):
     """
     Return aggregated stats for the dashboard.
-    All data comes from real database records.
+    If file_ids is provided, study-time stats are scoped to only those files.
     """
+    # Parse optional file_ids filter
+    selected_ids = set()
+    if file_ids:
+        selected_ids = set(fid.strip() for fid in file_ids.split(",") if fid.strip())
+
     # Total subjects
     total_subjects = db.query(func.count(Subject.id)).scalar() or 0
 
@@ -28,10 +37,23 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     # Total analyzed files (those with analysis)
     total_analyzed = db.query(func.count(FileAnalysis.id)).scalar() or 0
 
-    # Total study time across all files (in minutes)
-    total_study_minutes = (
-        db.query(func.sum(FileAnalysis.estimated_study_time)).scalar() or 0.0
-    )
+    # Total study time — either all files or only selected ones
+    if selected_ids:
+        total_study_minutes = (
+            db.query(func.sum(FileAnalysis.estimated_study_time))
+            .filter(FileAnalysis.file_id.in_(selected_ids))
+            .scalar() or 0.0
+        )
+        selected_count = (
+            db.query(func.count(FileAnalysis.id))
+            .filter(FileAnalysis.file_id.in_(selected_ids))
+            .scalar() or 0
+        )
+    else:
+        total_study_minutes = (
+            db.query(func.sum(FileAnalysis.estimated_study_time)).scalar() or 0.0
+        )
+        selected_count = total_analyzed
 
     # Recent files (last 5 uploaded)
     recent_files = (
@@ -70,33 +92,35 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     subject_stats = []
     
     for s in subjects_list:
-        # Using relationships is safer than string ID comparisons
         files_for_subject = s.files
         file_count = len(files_for_subject)
         
         study_time = 0.0
+        selected_study_time = 0.0
         for f in files_for_subject:
             if f.analysis:
-                study_time += (f.analysis.ai_estimated_study_time or f.analysis.estimated_study_time or 0.0)
+                t = f.analysis.ai_estimated_study_time or f.analysis.estimated_study_time or 0.0
+                study_time += t
+                if selected_ids and f.id in selected_ids:
+                    selected_study_time += t
+                elif not selected_ids:
+                    selected_study_time += t
 
         subject_stats.append({
             "id": s.id,
             "name": s.name,
             "color": s.color,
             "file_count": file_count,
-            "total_study_minutes": round(study_time, 1),
+            "total_study_minutes": round(selected_study_time if selected_ids else study_time, 1),
         })
-
-    # Debug log for server stdout
-    print(f"DEBUG: Dashboard stats calculated for {len(subject_stats)} subjects. Total minutes: {total_study_minutes}")
-    for stat in subject_stats:
-        print(f"  - {stat['name']}: {stat['file_count']} files, {stat['total_study_minutes']} mins")
 
     return {
         "total_subjects": total_subjects,
         "total_files": total_files,
         "total_analyzed": total_analyzed,
+        "selected_count": selected_count,
         "total_study_hours": round(total_study_minutes / 60, 1),
         "recent_analyses": recent_analyses,
         "subjects": subject_stats,
+        "has_filter": len(selected_ids) > 0,
     }

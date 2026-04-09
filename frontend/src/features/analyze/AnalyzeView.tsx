@@ -274,9 +274,11 @@ export function AnalyzeView() {
                       >
                         <Download size={16} />
                       </Button>
+                      {!isStudent && (
                       <Button variant="ghost" className="p-2 text-red-400 hover:text-red-300" onClick={() => handleDelete(file.id)}>
                         <Trash2 size={16} />
                       </Button>
+                      )}
                     </div>
                   </div>
 

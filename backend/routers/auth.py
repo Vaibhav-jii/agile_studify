@@ -76,3 +76,23 @@ def update_user_role(user_id: str, req: RoleUpdateRequest, db: Session = Depends
     user.role = req.role
     db.commit()
     return {"message": "Role updated successfully", "new_role": user.role}
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str
+    email: str
+
+@router.put("/users/{user_id}/profile")
+def update_profile(user_id: str, req: ProfileUpdateRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.full_name = req.full_name
+    
+    # Ideally should verify if new email exists when changing, but let's do a basic update
+    if user.email != req.email:
+        if db.query(User).filter(User.email == req.email).first():
+            raise HTTPException(status_code=400, detail="Email already taken")
+        user.email = req.email
+
+    db.commit()
+    return {"message": "Profile updated", "full_name": user.full_name, "email": user.email}
