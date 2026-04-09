@@ -308,6 +308,8 @@ export interface MaterialRequestResponse {
     description: string;
     student_name: string;
     file_name: string;
+    file_type: string;
+    file_size: number;
     subject_id: string;
     created_at: string;
 }
@@ -367,6 +369,24 @@ export async function rejectPR(prId: string): Promise<void> {
     return request<void>(`/prs/${prId}/reject`, { method: 'POST' });
 }
 
+export async function downloadPRFile(prId: string, fileName: string): Promise<void> {
+    const fullUrl = `${API_BASE}/prs/${prId}/download`;
+    const resp = await fetch(fullUrl);
+    if (!resp.ok) throw new Error('Download failed');
+
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
+export function getPRPreviewUrl(prId: string): string {
+    return `${API_BASE}/prs/${prId}/download`;
+}
 // ─── Auth API ────────────────────────────────────────────
 
 export interface LoginResponse {
@@ -376,11 +396,11 @@ export interface LoginResponse {
     full_name: string;
 }
 
-export async function loginUser(email: string, password: string): Promise<LoginResponse> {
+export async function loginUser(email: string, password: string, role?: string): Promise<LoginResponse> {
     return request<LoginResponse>('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role: role || '' }),
     });
 }
 
@@ -393,5 +413,24 @@ export async function updateUserRole(userId: string, role: string): Promise<void
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
+    });
+}
+
+export interface RegisterResponse {
+    message: string;
+    id: string;
+    role: string;
+}
+
+export async function registerUser(
+    email: string,
+    password: string,
+    role: string,
+    full_name: string
+): Promise<RegisterResponse> {
+    return request<RegisterResponse>('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role, full_name }),
     });
 }

@@ -10,6 +10,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 class LoginRequest(BaseModel):
     email: str
     password: str
+    role: str = ""  # optional: if provided, must match user's actual role
 
 class RegisterRequest(BaseModel):
     email: str
@@ -42,6 +43,13 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
     if not user or user.hashed_password != hash_pass(req.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # If the frontend sent a role, verify it matches
+    if req.role and user.role != req.role:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your account is registered as '{user.role}', not '{req.role}'. Please select the correct role."
+        )
     
     return {
         "id": user.id, 

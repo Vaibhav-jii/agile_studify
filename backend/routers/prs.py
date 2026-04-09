@@ -4,6 +4,7 @@ Allows students to submit drafts, and teachers to approve/reject them.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 import os
 import uuid
@@ -14,7 +15,7 @@ from models.db_models import MaterialRequest, Subject, UploadedFile, User
 
 # We import the internal logic from upload router to trigger the AI analysis 
 # upon teacher approval
-from routers.upload import ALLOWED_EXTENSIONS, UPLOAD_DIR, ai_estimate, parse_pdf, parse_pptx, estimate_time, _build_file_response
+from routers.upload import ALLOWED_EXTENSIONS, UPLOAD_DIR, ai_estimate, parse_pdf, parse_pptx, estimate_time, _build_file_response, _get_media_type
 from models.db_models import FileAnalysis
 import json
 
@@ -97,10 +98,29 @@ def list_pending_prs(subject_id: str | None = None, db: Session = Depends(get_db
             "description": pr.description,
             "student_name": student.full_name if student else "Unknown Student",
             "file_name": pr.original_name,
+            "file_type": pr.file_type,
+            "file_size": pr.file_size,
             "subject_id": pr.subject_id,
             "created_at": pr.created_at
         })
     return result
+
+
+@router.get("/{pr_id}/download")
+def download_pr_file(pr_id: str, db: Session = Depends(get_db)):
+    """Download/preview a PR draft file so a teacher can review it before approving."""
+    pr = db.query(MaterialRequest).filter(MaterialRequest.id == pr_id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="PR not found")
+
+    if not os.path.exists(pr.storage_path):
+        raise HTTPException(status_code=404, detail="Draft file not found on disk")
+
+    return FileResponse(
+        path=pr.storage_path,
+        filename=pr.original_name,
+        media_type=_get_media_type(pr.original_name),
+    )
 
 
 @router.post("/{pr_id}/approve")
@@ -205,3 +225,4 @@ def reject_pr(pr_id: str, db: Session = Depends(get_db)):
 
     db.commit()
     return {"message": "Pull Request rejected"}
+

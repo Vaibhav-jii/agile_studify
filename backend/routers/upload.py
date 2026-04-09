@@ -262,6 +262,20 @@ def delete_file(file_id: str, db: Session = Depends(get_db)):
     db.commit()
 
 
+# MIME type mapping for proper file downloads
+MIME_MAP = {
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".ppt":  "application/vnd.ms-powerpoint",
+    ".pdf":  "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc":  "application/msword",
+}
+
+def _get_media_type(filename: str) -> str:
+    ext = os.path.splitext(filename)[1].lower()
+    return MIME_MAP.get(ext, "application/octet-stream")
+
+
 @router.get("/{file_id}/download")
 def download_file(file_id: str, db: Session = Depends(get_db)):
     """Download a file — serves from local disk if available, otherwise from Supabase cloud."""
@@ -274,7 +288,7 @@ def download_file(file_id: str, db: Session = Depends(get_db)):
         return FileResponse(
             path=file_record.storage_path,
             filename=file_record.original_name,
-            media_type="application/octet-stream",
+            media_type=_get_media_type(file_record.original_name),
         )
 
     # Priority 2: Supabase cloud (for files uploaded after cloud storage was enabled)

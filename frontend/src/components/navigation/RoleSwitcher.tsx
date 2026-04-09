@@ -1,54 +1,54 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { fetchUsers } from '../../services/api';
-import { UserCheck } from 'lucide-react';
+import { GraduationCap, BookOpenCheck, Shield, LogOut } from 'lucide-react';
+
+const roleConfig = {
+  student: { label: 'Student', icon: GraduationCap, color: '#9B7CFF' },
+  teacher: { label: 'Teacher', icon: BookOpenCheck, color: '#FFABE1' },
+  admin:   { label: 'Admin',   icon: Shield,        color: '#5AC8FA' },
+};
 
 export function RoleSwitcher() {
-  const { user, login } = useAuth();
-  const [switching, setSwitching] = useState(false);
-
-  const handleRoleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const role = e.target.value as 'admin' | 'teacher' | 'student';
-    setSwitching(true);
-    try {
-      // Fetch real users from the DB and find the one with matching role
-      const users = await fetchUsers();
-      const matched = users.find(u => u.role === role);
-      if (matched) {
-        login({
-          id: matched.id,
-          email: matched.email,
-          role: matched.role as any,
-          full_name: matched.full_name,
-        });
-      } else {
-        alert(`No seeded ${role} account found in the database. Run: python seed.py`);
-      }
-    } catch {
-      alert('Could not reach backend to switch role. Is the server running?');
-    } finally {
-      setSwitching(false);
-    }
-  };
+  const { user, logout } = useAuth();
 
   if (!user) return null;
 
+  const config = roleConfig[user.role] || roleConfig.student;
+  const Icon = config.icon;
+
   return (
-    <div className="flex items-center gap-2 px-4 py-2 glass-card rounded-[var(--radius-lg)] border border-[var(--color-primary-violet)] border-opacity-30">
-      <UserCheck size={16} className="text-[var(--color-primary-violet)]" />
-      <span className="text-sm font-medium text-[var(--color-text-primary)]">
-        {switching ? 'Switching...' : 'Demo Role:'}
-      </span>
-      <select
-        value={user.role}
-        onChange={handleRoleChange}
-        disabled={switching}
-        className="bg-transparent text-sm text-[var(--color-text-secondary)] font-medium outline-none cursor-pointer hover:text-[var(--color-primary-violet)] transition-colors disabled:opacity-50"
+    <div className="flex flex-col gap-2">
+      {/* Role Badge (read-only) */}
+      <div
+        className="flex items-center gap-2 px-4 py-2.5 glass-card rounded-[var(--radius-lg)] border border-opacity-30"
+        style={{ borderColor: config.color }}
       >
-        <option value="admin" className="bg-[#1C1628]">Admin</option>
-        <option value="teacher" className="bg-[#1C1628]">Teacher</option>
-        <option value="student" className="bg-[#1C1628]">Student</option>
-      </select>
+        <Icon size={16} style={{ color: config.color }} />
+        <div className="flex flex-col flex-1 min-w-0">
+          <span className="text-xs text-[var(--color-text-muted)] leading-none">Logged in as</span>
+          <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+            {user.full_name || user.email}
+          </span>
+        </div>
+        <span
+          className="text-xs font-bold px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: `${config.color}22`, color: config.color }}
+        >
+          {config.label}
+        </span>
+      </div>
+
+      {/* Logout Button */}
+      <button
+        onClick={logout}
+        className="flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)]
+          text-sm font-medium text-[var(--color-text-muted)]
+          hover:bg-red-500/10 hover:text-red-400
+          transition-all duration-200"
+      >
+        <LogOut size={16} />
+        <span>Log out</span>
+      </button>
     </div>
   );
 }
