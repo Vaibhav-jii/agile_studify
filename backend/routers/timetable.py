@@ -61,11 +61,10 @@ async def create_timetable(request: TimetableRequest, db: Session = Depends(get_
 
     # Save to MongoDB asynchronously if user_id is provided
     if request.user_id:
-        # Convert result to dict for MongoDB
-        plan_dict = result.dict()
-        mongo_id = await save_study_plan(request.user_id, plan_dict)
+        # result is already a plain dict from generate_timetable()
+        mongo_id = await save_study_plan(request.user_id, result)
         if mongo_id:
-            result.mongo_id = mongo_id
+            result["mongo_id"] = mongo_id
 
     return result
 
