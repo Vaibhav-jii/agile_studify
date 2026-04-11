@@ -15,14 +15,22 @@ interactive quizzes to maximize academic performance.
     Real-time overview of your study progress, subject coverage, and
     recent uploads.
 
+-   👥 **Role-Based Access (Student & Teacher)**\
+    Tailored views and functionalities for both educators managing courses
+    and students organizing their learning resources.
+
 -   🧬 **AI Material Analysis**\
-    Upload `.pptx` files for automatic analysis. Powered by **Gemini
+    Upload `.pptx` and `.pdf` files for automatic analysis. Powered by **Gemini
     AI**, Studify extracts key topics, estimates study time, and
-    provides personalized study tips.
+    provides personalized study tips. 
+
+-   💾 **Cloud Storage & Data Persistence**\
+    Features reliable file downloads & storage backed by **Supabase**, 
+    while AI logs and fast-access metrics are maintained in **MongoDB**.
 
 -   📅 **Dynamic Study Planner**\
     Generate a personalized study schedule based on your available
-    hours, learning speed, and exam dates.
+    hours, learning speed, and exam dates. Includes fast background processing.
 
 -   🗓️ **Interactive Calendar**\
     View your study sessions in a monthly or weekly grid, export to
@@ -32,12 +40,9 @@ interactive quizzes to maximize academic performance.
     Automatically create quizzes from your study materials to test your
     knowledge.
 
--   📚 **Subject Management**\
+-   ⚙️ **Dynamic Profiles & Subject Management**\
     Organize your materials by subject with custom colors and
-    descriptions.
-
--   ✅ **Completion Tracking** *(Coming Soon)*\
-    Mark materials as done and track your mastery.
+    edit your user profile dynamically.
 
 ------------------------------------------------------------------------
 
@@ -54,9 +59,9 @@ interactive quizzes to maximize academic performance.
 ### Backend
 
 -   **Framework**: FastAPI\
--   **Database**: SQLite + SQLAlchemy\
--   **AI Integration**: Google Gemini Pro\
--   **File Parsing**: python-pptx
+-   **Database**: PostgreSQL (SQLAlchemy) + MongoDB (Motor) + Supabase\
+-   **AI Integration**: Google GenAI\
+-   **File Parsing**: python-pptx, PyMuPDF
 
 ------------------------------------------------------------------------
 
