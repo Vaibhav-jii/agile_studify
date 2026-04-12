@@ -70,7 +70,7 @@ def ai_estimate(
         truncated_text += "\n... [content truncated]"
 
     prompt = f"""You are a study advisor AI. Analyze this university-level study material and provide a realistic study time estimate.
-
+    
 **Material metadata:**
 - Slides: {slide_count}
 - Total words: {word_count}
@@ -85,6 +85,11 @@ Consider these factors for your estimate:
 - Whether prerequisite knowledge is needed
 - How many diagrams need careful study
 - Note-taking and comprehension time (not just reading)
+
+**CRITICAL TIMING RULES:**
+1. University students typically take 1 to 3 minutes to study a single slide.
+2. The absolute minimum study time for THIS presentation must be rigidly calculated as: (Slides ({slide_count}) x 1.5 minutes). Do NOT output an estimate lower than this minimum.
+3. If the material is dense or hard, scale it up to 3+ minutes per slide. 
 
 Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
 {{
