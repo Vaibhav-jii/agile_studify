@@ -69,6 +69,20 @@ def get_public_url(storage_path: str) -> Optional[str]:
         logger.error(f"Error getting public URL: {e}")
         return None
 
+def download_file_from_supabase(storage_path: str) -> Optional[bytes]:
+    """Securely download a file using the Supabase SDK."""
+    sb = _get_supabase()
+    if not sb or not storage_path:
+        return None
+    try:
+        parts = storage_path.split("/", 1)
+        bucket = parts[0] if len(parts) > 1 else BUCKET_NAME
+        path = parts[1] if len(parts) > 1 else storage_path
+        return sb.storage.from_(bucket).download(path)
+    except Exception as e:
+        logger.error(f"Error downloading from Supabase: {e}")
+        return None
+
 
 def _sync_delete(storage_path: str):
     """Synchronous delete — used by the endpoint (which is sync)."""

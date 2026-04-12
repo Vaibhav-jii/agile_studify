@@ -13,6 +13,7 @@ from models.schemas import QuizRequest, QuizQuestionResponse
 from services.ppt_parser import parse_pptx
 from services.quiz_generator import generate_quiz
 from services.mongo_service import save_quiz, get_quizzes_by_subject
+from services.supabase_service import get_public_url, download_file_from_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +46,35 @@ async def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
 
     # Extract text from all PPT files
     all_text_parts: list[str] = []
+    import os
+    import httpx
+    
     for f in files:
         if f.file_type == "ppt" and f.storage_path:
             try:
-                parse_result = parse_pptx(f.storage_path)
+                file_path = f.storage_path
+                # On serverless (Vercel), /tmp is ephemeral, so the file might not exist locally anymore.
+                # If not locally present, download it from Supabase temporarily.
+                if not os.path.exists(file_path):
+                    logger.info(f"File {f.original_name} not found locally. Downloading from Supabase...")
+                    
+                    # Create a safe temp path in case the DB path is an absolute Linux path like /opt/...
+                    import tempfile
+                    safe_temp_dir = os.path.join(tempfile.gettempdir(), "studify_downloads")
+                    os.makedirs(safe_temp_dir, exist_ok=True)
+                    file_path = os.path.join(safe_temp_dir, f.file_name)
+                    
+                    if not os.path.exists(file_path):
+                        file_bytes = download_file_from_supabase(f"materials/{f.file_name}")
+                        if file_bytes:
+                            with open(file_path, "wb") as out_f:
+                                out_f.write(file_bytes)
+                            logger.info(f"Downloaded {f.original_name} to {file_path}")
+                        else:
+                            logger.error(f"Failed to download {f.original_name} from Supabase.")
+                            continue # Skip this file
+
+                parse_result = parse_pptx(file_path)
                 if parse_result.full_text:
                     all_text_parts.append(
                         f"--- {f.original_name} ---\n{parse_result.full_text}"
