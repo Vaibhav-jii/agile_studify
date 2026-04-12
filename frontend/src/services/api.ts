@@ -4,7 +4,10 @@
  */
 
 const _rawBase = (import.meta as any).env.VITE_API_URL as string | undefined;
-const API_BASE = _rawBase ? _rawBase.replace(/\/$/, '') : '/api';
+let API_BASE = _rawBase ? _rawBase.replace(/\/$/, '') : '/api';
+if (API_BASE !== '/api' && !API_BASE.endsWith('/api')) {
+    API_BASE += '/api';
+}
 
 // ─── Generic helpers ─────────────────────────────────────
 
