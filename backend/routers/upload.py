@@ -2,7 +2,9 @@
 File upload and analysis endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from database import SessionLocal
+import asyncio
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 import os
@@ -95,6 +97,7 @@ async def upload_file(
     file: UploadFile = File(...),
     subject_id: str = Form(...),
     db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Upload a file (PPT/PDF/DOC), store it on disk, save metadata to DB,
@@ -151,75 +154,88 @@ async def upload_file(
     db.commit()
     db.refresh(file_record)
 
-    # Auto-analyze PPT and PDF files
-    if file_type in ("ppt", "pdf"):
-        try:
-            # Parse based on type
-            if file_type == "ppt" and ext == ".pptx":
-                parse_result = parse_pptx(file_path)
-            elif file_type == "pdf":
-                parse_result = parse_pdf(file_path)
-            else:
-                return _build_file_response(file_record, db)  # Skip others
-
-            time_result = estimate_time(parse_result)
-
-            # Build slide/page details JSON
-            slide_details = [
-                {
-                    "slide_number": s.slide_number,
-                    "word_count": s.word_count,
-                    "image_count": s.image_count,
-                    "has_text": s.has_text,
-                    "has_images": s.has_images,
-                    "estimated_minutes": s.estimated_minutes,
-                }
-                for s in time_result.slides
-            ]
-
-            analysis = FileAnalysis(
-                file_id=file_id,
-                slide_count=parse_result.total_slides,
-                total_word_count=parse_result.total_word_count,
-                total_image_count=parse_result.total_image_count,
-                total_char_count=parse_result.total_char_count,
-                estimated_reading_time=time_result.estimated_reading_minutes,
-                estimated_study_time=time_result.estimated_study_minutes,
-                difficulty=time_result.difficulty,
-                slide_details_json=json.dumps(slide_details),
-            )
-
-            # ── AI-powered analysis via Gemini ──
-            try:
-                ai_result = ai_estimate(
-                    extracted_text=parse_result.full_text,
-                    slide_count=parse_result.total_slides,
-                    word_count=parse_result.total_word_count,
-                    image_count=parse_result.total_image_count,
-                )
-                if ai_result:
-                    # Persist raw AI interactions to help with future debugging/prompt tuning
-                    await save_ai_log(file_id, ai_result.prompt, ai_result.raw_response)
-                    
-                    analysis.ai_estimated_study_time = ai_result.estimated_study_minutes
-                    analysis.ai_difficulty = ai_result.difficulty
-                    analysis.ai_key_topics = json.dumps(ai_result.key_topics)
-                    analysis.ai_study_tips = json.dumps(ai_result.study_tips)
-                    analysis.ai_reasoning = ai_result.reasoning
-                    # Use AI estimate as the primary if available
-                    analysis.estimated_study_time = ai_result.estimated_study_minutes
-                    analysis.difficulty = ai_result.difficulty
-            except Exception as ai_err:
-                logger.warning(f"AI estimation failed (using heuristic): {ai_err}")
-
-            db.add(analysis)
-            db.commit()
-            db.refresh(file_record)
-        except Exception as e:
-            logger.error(f"Analysis failed for {original_name}: {e}")
-            # File is still saved, analysis just didn't work
+    # Move heavy analysis to background task
+    if file_type in ("ppt", "pdf") and background_tasks:
+        background_tasks.add_task(
+            process_file_background,
+            file_id=file_id,
+            file_path=file_path,
+            file_type=file_type,
+            ext=ext,
+            original_name=original_name,
+        )
 
     return _build_file_response(file_record, db)
+
+def process_file_background(file_id: str, file_path: str, file_type: str, ext: str, original_name: str):
+    db: Session = SessionLocal()
+    try:
+        if file_type == "ppt" and ext == ".pptx":
+            parse_result = parse_pptx(file_path)
+        elif file_type == "pdf":
+            parse_result = parse_pdf(file_path)
+        else:
+            return
+
+        time_result = estimate_time(parse_result)
+        slide_details = [
+            {
+                "slide_number": s.slide_number,
+                "word_count": s.word_count,
+                "image_count": s.image_count,
+                "has_text": s.has_text,
+                "has_images": s.has_images,
+                "estimated_minutes": s.estimated_minutes,
+            }
+            for s in time_result.slides
+        ]
+
+        analysis = FileAnalysis(
+            file_id=file_id,
+            slide_count=parse_result.total_slides,
+            total_word_count=parse_result.total_word_count,
+            total_image_count=parse_result.total_image_count,
+            total_char_count=parse_result.total_char_count,
+            estimated_reading_time=time_result.estimated_reading_minutes,
+            estimated_study_time=time_result.estimated_study_minutes,
+            difficulty=time_result.difficulty,
+            slide_details_json=json.dumps(slide_details),
+        )
+
+        try:
+            ai_result = ai_estimate(
+                extracted_text=parse_result.full_text,
+                slide_count=parse_result.total_slides,
+                word_count=parse_result.total_word_count,
+                image_count=parse_result.total_image_count,
+            )
+            if ai_result:
+                # Run the async save_ai_log in an event loop because we are inside a blocking threadpool
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_closed():
+                        raise RuntimeError
+                except Exception:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                loop.run_until_complete(save_ai_log(file_id, ai_result.prompt, ai_result.raw_response))
+                    
+                analysis.ai_estimated_study_time = ai_result.estimated_study_minutes
+                analysis.ai_difficulty = ai_result.difficulty
+                analysis.ai_key_topics = json.dumps(ai_result.key_topics)
+                analysis.ai_study_tips = json.dumps(ai_result.study_tips)
+                analysis.ai_reasoning = ai_result.reasoning
+                analysis.estimated_study_time = ai_result.estimated_study_minutes
+                analysis.difficulty = ai_result.difficulty
+        except Exception as ai_err:
+            logger.warning(f"AI estimation failed (using heuristic): {ai_err}")
+
+        db.add(analysis)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Analysis failed for {original_name}: {e}")
+    finally:
+        db.close()
 
 
 @router.get("/", response_model=list[UploadedFileResponse])

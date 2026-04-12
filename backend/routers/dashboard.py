@@ -3,7 +3,7 @@ Dashboard endpoint — aggregates real data from the database.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -58,6 +58,7 @@ def get_dashboard_stats(
     # Recent files (last 5 uploaded)
     recent_files = (
         db.query(UploadedFile)
+        .options(joinedload(UploadedFile.analysis))
         .order_by(UploadedFile.uploaded_at.desc())
         .limit(5)
         .all()
@@ -88,7 +89,9 @@ def get_dashboard_stats(
         recent_analyses.append(entry)
 
     # Subjects with their stats
-    subjects_list = db.query(Subject).order_by(Subject.created_at.desc()).all()
+    subjects_list = db.query(Subject).options(
+        joinedload(Subject.files).joinedload(UploadedFile.analysis)
+    ).order_by(Subject.created_at.desc()).all()
     subject_stats = []
     
     for s in subjects_list:
