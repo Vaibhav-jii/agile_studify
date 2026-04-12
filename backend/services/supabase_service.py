@@ -69,18 +69,23 @@ def get_public_url(storage_path: str) -> Optional[str]:
         logger.error(f"Error getting public URL: {e}")
         return None
 
-def download_file_from_supabase(storage_path: str) -> Optional[bytes]:
-    """Securely download a file using the Supabase SDK."""
+def download_file_from_supabase(file_name: str) -> Optional[bytes]:
+    """Download a file from Supabase Storage using the SDK.
+    
+    Args:
+        file_name: Just the filename (e.g. 'abc-123.pptx'), NOT prefixed with bucket name.
+    """
     sb = _get_supabase()
-    if not sb or not storage_path:
+    if not sb or not file_name:
+        logger.warning(f"Cannot download: supabase={'OK' if sb else 'NONE'}, file_name='{file_name}'")
         return None
     try:
-        parts = storage_path.split("/", 1)
-        bucket = parts[0] if len(parts) > 1 else BUCKET_NAME
-        path = parts[1] if len(parts) > 1 else storage_path
-        return sb.storage.from_(bucket).download(path)
+        logger.info(f"Downloading from Supabase: bucket='{BUCKET_NAME}', path='{file_name}'")
+        data = sb.storage.from_(BUCKET_NAME).download(file_name)
+        logger.info(f"Download successful: {len(data)} bytes")
+        return data
     except Exception as e:
-        logger.error(f"Error downloading from Supabase: {e}")
+        logger.error(f"Error downloading '{file_name}' from Supabase bucket '{BUCKET_NAME}': {e}")
         return None
 
 

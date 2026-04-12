@@ -5,15 +5,18 @@ Generate MCQ quizzes from uploaded study materials using local text analysis.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import os
+import tempfile
 import logging
 
 from database import get_db
 from models.db_models import Subject, UploadedFile, FileAnalysis
 from models.schemas import QuizRequest, QuizQuestionResponse
 from services.ppt_parser import parse_pptx
+from services.pdf_parser import parse_pdf
 from services.quiz_generator import generate_quiz
 from services.mongo_service import save_quiz, get_quizzes_by_subject
-from services.supabase_service import get_public_url, download_file_from_supabase
+from services.supabase_service import download_file_from_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,7 @@ router = APIRouter(prefix="/api/quiz", tags=["quiz"])
 @router.post("/generate")
 async def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
     """
-    Generate a quiz for a subject using its uploaded PPT content.
+    Generate a quiz for a subject using its uploaded PPT/PDF content.
     Extracts text and generates MCQ questions locally (no API needed).
     """
     # Verify subject exists
@@ -31,7 +34,7 @@ async def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
-    # Get all analyzed files for this subject
+    # Get all files for this subject
     files = (
         db.query(UploadedFile)
         .filter(UploadedFile.subject_id == request.subject_id)
@@ -44,43 +47,64 @@ async def create_quiz(request: QuizRequest, db: Session = Depends(get_db)):
             detail="No files uploaded for this subject. Upload study materials first.",
         )
 
-    # Extract text from all PPT files
-    all_text_parts: list[str] = []
-    import os
-    import httpx
-    
+    logger.info(f"Quiz generation: found {len(files)} file(s) for subject '{subject.name}'")
     for f in files:
-        if f.file_type == "ppt" and f.storage_path:
-            try:
-                file_path = f.storage_path
-                # On serverless (Vercel), /tmp is ephemeral, so the file might not exist locally anymore.
-                # If not locally present, download it from Supabase temporarily.
-                if not os.path.exists(file_path):
-                    logger.info(f"File {f.original_name} not found locally. Downloading from Supabase...")
-                    
-                    # Create a safe temp path in case the DB path is an absolute Linux path like /opt/...
-                    import tempfile
-                    safe_temp_dir = os.path.join(tempfile.gettempdir(), "studify_downloads")
-                    os.makedirs(safe_temp_dir, exist_ok=True)
-                    file_path = os.path.join(safe_temp_dir, f.file_name)
-                    
-                    if not os.path.exists(file_path):
-                        file_bytes = download_file_from_supabase(f"materials/{f.file_name}")
-                        if file_bytes:
-                            with open(file_path, "wb") as out_f:
-                                out_f.write(file_bytes)
-                            logger.info(f"Downloaded {f.original_name} to {file_path}")
-                        else:
-                            logger.error(f"Failed to download {f.original_name} from Supabase.")
-                            continue # Skip this file
+        logger.info(f"  -> {f.original_name} (type={f.file_type}, path={f.storage_path})")
 
+    # Extract text from all PPT and PDF files
+    all_text_parts: list[str] = []
+
+    for f in files:
+        if f.file_type not in ("ppt", "pdf"):
+            logger.info(f"Skipping {f.original_name}: unsupported type '{f.file_type}'")
+            continue
+        if not f.storage_path:
+            logger.warning(f"Skipping {f.original_name}: no storage_path in DB")
+            continue
+
+        try:
+            file_path = f.storage_path
+
+            # If the file doesn't exist locally (e.g. Render/Vercel ephemeral storage),
+            # download it from Supabase into a safe temp directory.
+            if not os.path.exists(file_path):
+                logger.info(f"File not on disk: {file_path}. Attempting Supabase download...")
+
+                safe_temp_dir = os.path.join(tempfile.gettempdir(), "studify_downloads")
+                os.makedirs(safe_temp_dir, exist_ok=True)
+                file_path = os.path.join(safe_temp_dir, f.file_name)
+
+                if not os.path.exists(file_path):
+                    # Download using the Supabase SDK (authenticated, works with private buckets)
+                    file_bytes = download_file_from_supabase(f.file_name)
+                    if file_bytes:
+                        with open(file_path, "wb") as out_f:
+                            out_f.write(file_bytes)
+                        logger.info(f"Downloaded {f.original_name} ({len(file_bytes)} bytes) -> {file_path}")
+                    else:
+                        logger.error(f"FAILED to download {f.original_name} from Supabase. Skipping.")
+                        continue
+                else:
+                    logger.info(f"Already cached at {file_path}")
+
+            # Parse based on file type
+            if f.file_type == "ppt":
                 parse_result = parse_pptx(file_path)
-                if parse_result.full_text:
-                    all_text_parts.append(
-                        f"--- {f.original_name} ---\n{parse_result.full_text}"
-                    )
-            except Exception as e:
-                logger.warning(f"Could not parse {f.original_name}: {e}")
+            elif f.file_type == "pdf":
+                parse_result = parse_pdf(file_path)
+            else:
+                continue
+
+            if parse_result.full_text:
+                all_text_parts.append(
+                    f"--- {f.original_name} ---\n{parse_result.full_text}"
+                )
+                logger.info(f"Extracted {parse_result.total_word_count} words from {f.original_name}")
+            else:
+                logger.warning(f"No text extracted from {f.original_name}")
+
+        except Exception as e:
+            logger.warning(f"Could not parse {f.original_name}: {e}")
 
     if not all_text_parts:
         raise HTTPException(
