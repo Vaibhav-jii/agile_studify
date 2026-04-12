@@ -3,7 +3,8 @@
  * All requests go through the Vite proxy (/api → backend).
  */
 
-const API_BASE = '/api';
+const _rawBase = (import.meta as any).env.VITE_API_URL as string | undefined;
+const API_BASE = _rawBase ? _rawBase.replace(/\/$/, '') : '/api';
 
 // ─── Generic helpers ─────────────────────────────────────
 
