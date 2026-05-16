@@ -1,15 +1,28 @@
 """
 Local quiz generation from PPT/study material content.
-Generates MCQ questions without any AI/Gemini dependency.
-Uses NLP heuristics: extracts key sentences, creates definition-based
-fill-in-the-blank and conceptual MCQs.
+Generates MCQ questions using NLTK for sentence tokenization and
+POS-tag-based key-phrase extraction, plus regex for definition detection.
 """
 
 import re
 import random
 import logging
 
+import nltk
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tag import pos_tag
+
 logger = logging.getLogger(__name__)
+
+# Ensure required NLTK data is present (downloads silently on first run)
+for _resource, _path in [
+    ('punkt_tab', 'tokenizers/punkt_tab'),
+    ('averaged_perceptron_tagger_eng', 'taggers/averaged_perceptron_tagger_eng'),
+]:
+    try:
+        nltk.data.find(_path)
+    except LookupError:
+        nltk.download(_resource, quiet=True)
 
 
 def _clean_text(text: str) -> str:
@@ -20,17 +33,11 @@ def _clean_text(text: str) -> str:
 
 
 def _extract_sentences(text: str) -> list[str]:
-    """Split text into meaningful sentences (min 8 words)."""
+    """Split text into meaningful sentences using NLTK sent_tokenize."""
     text = _clean_text(text)
-    # Split on sentence-ending punctuation
-    raw = re.split(r'(?<=[.!?])\s+', text)
-    sentences = []
-    for s in raw:
-        s = s.strip()
-        words = s.split()
-        if len(words) >= 8 and len(words) <= 40:
-            sentences.append(s)
-    return sentences
+    # nltk.sent_tokenize handles abbreviations (Dr., Fig., etc.) correctly
+    raw = sent_tokenize(text)
+    return [s.strip() for s in raw if 8 <= len(s.split()) <= 40]
 
 
 def _extract_key_definitions(text: str) -> list[tuple[str, str]]:
@@ -56,11 +63,32 @@ def _extract_key_definitions(text: str) -> list[tuple[str, str]]:
 
 
 def _extract_key_phrases(text: str) -> list[str]:
-    """Extract important multi-word phrases (potential quiz answers)."""
-    # Find capitalized multi-word phrases (likely proper nouns / concepts)
-    phrases = re.findall(r'\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)\b', text)
-    # De-duplicate while preserving order
-    seen = set()
+    """
+    Extract key noun phrases using NLTK POS tagging.
+    Finds consecutive NNP/NNPS (proper noun) sequences — the standard
+    NLP approach for key-concept and named-entity extraction.
+    """
+    text = _clean_text(text)
+    tokens = word_tokenize(text)
+    tagged = pos_tag(tokens)
+
+    phrases = []
+    current_phrase: list[str] = []
+
+    for word, tag in tagged:
+        if tag in ('NNP', 'NNPS'):
+            current_phrase.append(word)
+        else:
+            if current_phrase:
+                phrase = ' '.join(current_phrase)
+                if len(phrase) > 2:
+                    phrases.append(phrase)
+            current_phrase = []
+    if current_phrase:
+        phrases.append(' '.join(current_phrase))
+
+    # De-duplicate while preserving order, cap at 4-word phrases
+    seen: set[str] = set()
     unique = []
     for p in phrases:
         pl = p.lower()
@@ -68,6 +96,7 @@ def _extract_key_phrases(text: str) -> list[str]:
             seen.add(pl)
             unique.append(p)
     return unique
+
 
 
 def _make_definition_question(term: str, definition: str, all_terms: list[str]) -> dict | None:
