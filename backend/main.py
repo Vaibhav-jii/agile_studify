@@ -52,7 +52,7 @@ def root():
     return {"message": "Studify API is running", "docs": "/docs"}
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health_check():
     return {"status": "ok"}
 
