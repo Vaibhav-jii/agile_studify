@@ -25,6 +25,38 @@ for _resource, _path in [
         nltk.download(_resource, quiet=True)
 
 
+# Words that look like proper nouns but are useless as quiz terms
+_STOPWORDS = {
+    'this', 'that', 'these', 'those', 'there', 'their', 'then',
+    'also', 'which', 'where', 'when', 'thus', 'hence', 'note',
+    'positive', 'negative', 'true', 'false', 'figure', 'fig',
+    'example', 'above', 'below', 'given', 'let', 'case',
+}
+
+# Characters that indicate a math/formula fragment
+_MATH_CHARS = set('=+*/\\<>{}[]|^~_$@')
+
+
+def _is_valid_term(text: str) -> bool:
+    """Return True only if text is a clean, readable quiz term/option."""
+    text = text.strip()
+    # Too short
+    if len(text) < 3:
+        return False
+    # Contains math/formula characters or digits
+    if any(c in _MATH_CHARS for c in text):
+        return False
+    if any(c.isdigit() for c in text):
+        return False
+    # Single generic word in stopword list
+    if text.lower() in _STOPWORDS:
+        return False
+    # Must contain at least one letter
+    if not any(c.isalpha() for c in text):
+        return False
+    return True
+
+
 def _clean_text(text: str) -> str:
     """Normalize whitespace and remove junk from slide text."""
     text = re.sub(r'\s+', ' ', text)
@@ -57,6 +89,11 @@ def _extract_key_definitions(text: str) -> list[tuple[str, str]]:
         for match in re.finditer(pat, text):
             term = match.group(1).strip()
             defn = match.group(2).strip()
+            # Reject math fragments, short definitions, or invalid terms
+            if not _is_valid_term(term):
+                continue
+            if any(c in _MATH_CHARS for c in defn):
+                continue
             if len(term.split()) <= 5 and len(defn.split()) >= 5:
                 definitions.append((term, defn))
     return definitions
@@ -87,12 +124,12 @@ def _extract_key_phrases(text: str) -> list[str]:
     if current_phrase:
         phrases.append(' '.join(current_phrase))
 
-    # De-duplicate while preserving order, cap at 4-word phrases
+    # De-duplicate, cap at 4 words, reject math/junk
     seen: set[str] = set()
     unique = []
     for p in phrases:
         pl = p.lower()
-        if pl not in seen and len(p.split()) <= 4:
+        if pl not in seen and len(p.split()) <= 4 and _is_valid_term(p):
             seen.add(pl)
             unique.append(p)
     return unique
@@ -101,7 +138,11 @@ def _extract_key_phrases(text: str) -> list[str]:
 
 def _make_definition_question(term: str, definition: str, all_terms: list[str]) -> dict | None:
     """Create a 'What is X?' style question from a definition."""
-    distractors = [t for t in all_terms if t.lower() != term.lower()]
+    # Filter distractors — must be clean readable terms, not math or junk
+    distractors = [
+        t for t in all_terms
+        if t.lower() != term.lower() and _is_valid_term(t)
+    ]
     if len(distractors) < 3:
         return None
 
