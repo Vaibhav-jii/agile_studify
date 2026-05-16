@@ -73,10 +73,23 @@ Rules:
 - Mix question types: factual recall, conceptual understanding, application
 - Keep questions concise and unambiguous"""
 
-        response = client.models.generate_content(
-            model=_QUIZ_MODEL,
-            contents=prompt,
-        )
+        # Retry up to 3 times on 429 rate limit (30s, 60s backoff)
+        import time
+        max_retries, retry_delays = 3, [30, 60]
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=_QUIZ_MODEL,
+                    contents=prompt,
+                )
+                break  # success
+            except Exception as e:
+                if '429' in str(e) and attempt < max_retries - 1:
+                    wait = retry_delays[attempt]
+                    logger.warning(f"Rate limited, retrying in {wait}s (attempt {attempt + 1})")
+                    time.sleep(wait)
+                else:
+                    raise
 
         text = response.text.strip()
 
