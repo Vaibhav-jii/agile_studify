@@ -8,16 +8,17 @@ logger = logging.getLogger(__name__)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")  # service role — bypasses RLS for storage
 BUCKET_NAME = "materials"
 
-_supabase: Optional[Client] = None
+_supabase: Optional[Client] = None        # anon client (DB queries)
+_supabase_storage: Optional[Client] = None  # service role client (storage uploads)
 
 def _get_supabase() -> Optional[Client]:
-    """Lazy-initialize the Supabase client on first use (after .env is loaded)."""
+    """Lazy-initialize the anon Supabase client (for DB queries)."""
     global _supabase
     if _supabase is not None:
         return _supabase
-
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_KEY")
     if not url or not key:
@@ -25,15 +26,32 @@ def _get_supabase() -> Optional[Client]:
         return None
     try:
         _supabase = create_client(url, key)
-        logger.info("Supabase storage client initialized.")
+        logger.info("Supabase client initialized.")
     except Exception as e:
         logger.error(f"Supabase init failed: {e}")
     return _supabase
 
 
+def _get_supabase_storage() -> Optional[Client]:
+    """Service role client for storage — bypasses RLS. Falls back to anon."""
+    global _supabase_storage
+    if _supabase_storage is not None:
+        return _supabase_storage
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+    if not url or not key:
+        return None
+    try:
+        _supabase_storage = create_client(url, key)
+        logger.info(f"Supabase storage client initialized ({'service role' if os.getenv('SUPABASE_SERVICE_KEY') else 'anon'}).")
+    except Exception as e:
+        logger.error(f"Supabase storage init failed: {e}")
+    return _supabase_storage
+
+
 def _sync_upload(file_content: bytes, file_name: str, content_type: str) -> Optional[str]:
-    """Synchronous upload — runs in a thread pool to avoid blocking the async event loop."""
-    sb = _get_supabase()
+    """Synchronous upload using service role client to bypass RLS."""
+    sb = _get_supabase_storage()  # uses service role key if available
     if not sb:
         return None
     try:
