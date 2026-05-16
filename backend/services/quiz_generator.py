@@ -226,11 +226,105 @@ def _make_true_false_style(sentence: str) -> dict | None:
         "explanation": f"This statement is correct as stated in the study material.",
     }
 
+def _ai_generate_quiz(content_text: str, subject_name: str, num_questions: int) -> list[dict] | None:
+    """
+    Generate quiz questions using Gemini AI.
+    Returns None if Gemini is unavailable (no key, rate limit, network error).
+    Falls back gracefully — caller will use NLTK instead.
+    """
+    import os, json
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        logger.info("No GEMINI_API_KEY — using NLTK fallback")
+        return None
+
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+
+        # Truncate to avoid excessive token usage
+        truncated = content_text[:6000]
+        if len(content_text) > 6000:
+            truncated += "\n... [content truncated]"
+
+        prompt = f"""Generate exactly {num_questions} multiple choice questions from this study material about "{subject_name}".
+
+Content:
+{truncated}
+
+Return ONLY a valid JSON array — no markdown, no code fences, no explanation.
+Each object must have exactly this structure:
+[
+  {{
+    "question": "Clear question about the content?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_index": 0,
+    "explanation": "Brief reason why this option is correct."
+  }}
+]
+
+Rules:
+- Questions must be based strictly on the provided content
+- Each question must have exactly 4 options
+- correct_index is 0-3 (position of the correct answer in options)
+- No math formulas, symbols, or single-word options
+- Options must be meaningful readable phrases
+- Vary question types (factual, conceptual, application)"""
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
+
+        text = response.text.strip()
+        # Strip markdown fences if Gemini adds them anyway
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if "```" in text:
+                text = text[:text.rfind("```")].strip()
+
+        data = json.loads(text)
+        if not isinstance(data, list) or len(data) == 0:
+            logger.warning("Gemini returned empty or non-list quiz")
+            return None
+
+        # Validate and sanitise each question
+        valid = []
+        for q in data:
+            if (
+                isinstance(q, dict)
+                and isinstance(q.get("question"), str)
+                and isinstance(q.get("options"), list)
+                and len(q["options"]) == 4
+                and isinstance(q.get("correct_index"), int)
+                and 0 <= q["correct_index"] <= 3
+            ):
+                valid.append({
+                    "question": q["question"],
+                    "options": [str(o) for o in q["options"]],
+                    "correct_index": q["correct_index"],
+                    "explanation": q.get("explanation", ""),
+                })
+
+        if not valid:
+            logger.warning("Gemini quiz had no valid questions after validation")
+            return None
+
+        logger.info(f"Gemini generated {len(valid)} quiz questions for '{subject_name}'")
+        return valid[:num_questions]
+
+    except json.JSONDecodeError as e:
+        logger.warning(f"Gemini returned invalid JSON for quiz: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Gemini quiz generation failed ({type(e).__name__}): {e}")
+        return None
+
 
 def generate_quiz(content_text: str, subject_name: str, num_questions: int = 10) -> list[dict] | None:
     """
-    Generate MCQ quiz questions locally from study material content.
-    No AI/Gemini required — uses text analysis heuristics.
+    Generate MCQ quiz questions from study material.
+    Tries Gemini AI first for accurate questions; falls back to NLTK if unavailable.
 
     Args:
         content_text: Concatenated text from PPT slides / study materials.
@@ -244,6 +338,14 @@ def generate_quiz(content_text: str, subject_name: str, num_questions: int = 10)
     if not content_text or len(content_text.strip()) < 50:
         logger.error("Not enough content to generate quiz questions")
         return None
+
+    # ── Primary: Gemini AI (accurate, context-aware) ────────────────────────
+    ai_questions = _ai_generate_quiz(content_text, subject_name, num_questions)
+    if ai_questions:
+        return ai_questions
+
+    # ── Fallback: NLTK-based local generation ───────────────────────────────
+    logger.info(f"Using NLTK fallback for '{subject_name}'")
 
     sentences = _extract_sentences(content_text)
     definitions = _extract_key_definitions(content_text)
@@ -289,8 +391,6 @@ def generate_quiz(content_text: str, subject_name: str, num_questions: int = 10)
         logger.error(f"Could not generate any questions for '{subject_name}' (sentences: {len(sentences)}, definitions: {len(definitions)})")
         return None
 
-    # Shuffle final order
     random.shuffle(questions)
-
-    logger.info(f"Generated {len(questions)} local quiz questions for '{subject_name}'")
+    logger.info(f"Generated {len(questions)} NLTK quiz questions for '{subject_name}'")
     return questions[:num_questions]
