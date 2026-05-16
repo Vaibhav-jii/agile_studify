@@ -11,8 +11,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Model to use — Gemma 4 31B instruction-tuned (via Gemini API)
-_QUIZ_MODEL = "gemma-4-31b-it"
+# Model to use — Gemini 2.5 Flash (separate quota from 2.0-flash)
+_QUIZ_MODEL = "gemini-2.5-flash"
 
 
 def generate_quiz(content_text: str, subject_name: str, num_questions: int = 10) -> list[dict] | None:
