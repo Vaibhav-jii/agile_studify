@@ -288,7 +288,7 @@ export function AnalyzeView() {
                       <div className="flex items-center gap-2">
                         <BookOpen size={14} className="text-[var(--color-text-muted)]" />
                         <span className="text-sm text-[var(--color-text-muted)]">
-                          {file.analysis.slide_count} slides
+                          {file.analysis.slide_count} {file.file_type === 'pdf' ? 'pages' : 'slides'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -313,9 +313,14 @@ export function AnalyzeView() {
                   )}
 
                   {/* No analysis badge */}
-                  {!file.analysis && file.file_type !== 'ppt' && (
+                  {!file.analysis && file.file_type !== 'ppt' && file.file_type !== 'pdf' && (
                     <div className="pt-2 border-t border-white/10">
-                      <Badge variant="default">Analysis available for .pptx files only</Badge>
+                      <Badge variant="default">Analysis available for .pptx and .pdf files</Badge>
+                    </div>
+                  )}
+                  {!file.analysis && (file.file_type === 'ppt' || file.file_type === 'pdf') && (
+                    <div className="pt-2 border-t border-white/10">
+                      <Badge variant="default">Analysis processing in background…</Badge>
                     </div>
                   )}
                 </div>

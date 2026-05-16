@@ -295,7 +295,7 @@ export function LibraryView({ onAnalyze, onAddToPlan }: LibraryViewProps) {
                       <div className="flex flex-wrap gap-3 text-xs text-[var(--color-text-muted)] pt-2 border-t border-white/10">
                         <span className="flex items-center gap-1">
                           <BookOpen size={12} />
-                          {file.analysis.slide_count} slides
+                          {file.analysis.slide_count} {file.file_type === 'pdf' ? 'pages' : 'slides'}
                         </span>
                         <span className="flex items-center gap-1">
                           <BarChart3 size={12} />
