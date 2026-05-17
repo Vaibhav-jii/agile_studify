@@ -9,6 +9,28 @@ interactive quizzes to maximize academic performance.
 
 ------------------------------------------------------------------------
 
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    A["🌐 Browser\nReact + Vite"] -->|HTTPS| B["⚡ FastAPI\nRender"]
+
+    B --> C["📄 File Parser\npython-pptx / PyMuPDF"]
+    C --> D["🧮 Time Estimator\nHeuristic formula"]
+    C --> E["🤖 Gemini 2.5 Flash\nDifficulty · Topics · Quiz"]
+
+    B -->|File upload| F["🪣 Supabase Storage\nCloud files"]
+    D -->|Results| G["🐘 PostgreSQL\nUsers · Files · Analysis"]
+    E -->|AI logs| H["🍃 MongoDB\nAI responses"]
+    E -->|Quiz MCQs| G
+
+    G -->|JSON response| A
+```
+
+> **Request flow:** Frontend uploads a file → FastAPI parses it locally → heuristic formula gives instant study time → Gemini 2.5 Flash runs in the background for AI analysis and quiz generation → results stored in PostgreSQL and MongoDB → frontend displays everything.
+
+------------------------------------------------------------------------
+
 ## ✨ Features
 
 -   📊 **Intelligent Dashboard**\
