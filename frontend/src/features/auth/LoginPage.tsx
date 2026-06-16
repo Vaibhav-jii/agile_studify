@@ -46,11 +46,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           setIsLoading(false);
           return;
         }
-        await registerUser(email, password, role, fullName);
+        await registerUser(email, password, 'student', fullName);
         showToast('Account created! Logging you in…', 'success');
 
         // Auto-login after registration
-        const response = await loginUser(email, password, role);
+        const response = await loginUser(email, password, 'student');
         const sessionUser: User = {
           id: response.id,
           email: response.email,
@@ -68,7 +68,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   };
 
   const toggleMode = () => {
-    setMode(prev => prev === 'login' ? 'signup' : 'login');
+    setMode(prev => {
+      const newMode = prev === 'login' ? 'signup' : 'login';
+      if (newMode === 'signup') setRole('student');
+      return newMode;
+    });
   };
 
   const inputClasses = `
@@ -196,7 +200,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <label className="block text-xs font-semibold text-white/90 mb-2 drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)] ml-1">
                 {mode === 'login' ? 'I am a' : 'I want to join as'}
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid ${mode === 'login' ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
                 <button
                   type="button"
                   onClick={() => setRole('student')}
@@ -214,23 +218,25 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <GraduationCap size={18} />
                   Student
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('teacher')}
-                  className={`
-                    flex items-center justify-center gap-2 px-4 py-3 rounded-xl
-                    border backdrop-blur-xl
-                    text-sm font-semibold
-                    transition-all duration-300
-                    ${role === 'teacher'
-                      ? 'bg-[#FFABE1]/20 border-[#FFABE1]/60 text-white shadow-[0_0_20px_rgba(255,171,225,0.3)]'
-                      : 'bg-white/[0.04] border-white/15 text-white/60 hover:bg-white/[0.08] hover:border-white/25'
-                    }
-                  `}
-                >
-                  <BookOpenCheck size={18} />
-                  Teacher
-                </button>
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => setRole('teacher')}
+                    className={`
+                      flex items-center justify-center gap-2 px-4 py-3 rounded-xl
+                      border backdrop-blur-xl
+                      text-sm font-semibold
+                      transition-all duration-300
+                      ${role === 'teacher'
+                        ? 'bg-[#FFABE1]/20 border-[#FFABE1]/60 text-white shadow-[0_0_20px_rgba(255,171,225,0.3)]'
+                        : 'bg-white/[0.04] border-white/15 text-white/60 hover:bg-white/[0.08] hover:border-white/25'
+                      }
+                    `}
+                  >
+                    <BookOpenCheck size={18} />
+                    Teacher
+                  </button>
+                )}
               </div>
             </div>
 
